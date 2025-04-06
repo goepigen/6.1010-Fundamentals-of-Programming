@@ -15,6 +15,16 @@ from pathlib import Path
 
 image_folder = Path("./test_images")
 
+# Next tasks
+# The original image is the only image with a label.
+# The images (that are larger then 100 width) are displayed in a fixed size of 300x300 pixels.
+# We would like all images to expand to fill in their containers.
+# Thus, the tasks are
+# 1) Make the original image expand.
+# 2) Add labels and add expanding behavior to the other photos.
+# We also want labels for the sliders in the UI showing what they represent and the current values.
+# The top dropdown has the width of the entire UI. It should be smaller.
+
 
 class MainWindow(QWidget):
 
@@ -37,6 +47,8 @@ class MainWindow(QWidget):
         self.cumulative_energy_map_normalized = None
         self.color_image_with_highlighted_seam = None
         self.color_image_with_highlighted_seam_pixmap = None
+        self.color_image_without_n_seams = None
+        self.color_image_without_n_seams_pixmap = None
 
         self.resize(1600, 1200)
         self.setWindowTitle("w2 - Image Processing")
@@ -57,15 +69,22 @@ class MainWindow(QWidget):
         self.dropdown.currentIndexChanged.connect(self.load_selected_color_image)
 
         # Original Color Image
-        self.original_image_pixmap = QLabel()
+        self.original_image_pixmap = QLabel("Original Image")
         self.original_image_pixmap.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        original_image_label = QLabel("Original Image")
+        original_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        original_image_panel = QVBoxLayout()
+        original_image_panel.addWidget(self.original_image_pixmap, stretch=1)
+        original_image_panel.addWidget(original_image_label, stretch=0)
 
         # Greyscale Image
         self.greyscale_image_pixmap = QLabel()
         self.greyscale_image_pixmap.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Add Widgets to Row 1
-        self.row1Layout.addWidget(self.original_image_pixmap)
+        self.row1Layout.addLayout(original_image_panel)
         self.row1Layout.addWidget(self.greyscale_image_pixmap)
 
         # Slider to Select Kernel Size for Blur Filter
@@ -114,8 +133,10 @@ class MainWindow(QWidget):
             Qt.AlignmentFlag.AlignCenter
         )
 
-        self.color_image_without_n_seams = QLabel()
-        self.color_image_without_n_seams.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.color_image_without_n_seams_pixmap = QLabel()
+        self.color_image_without_n_seams_pixmap.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+        )
 
         self.row3Layout.addWidget(self.energy_image)
         self.row3Layout.addWidget(self.cumulative_energy_pixmap)
@@ -131,7 +152,7 @@ class MainWindow(QWidget):
         # Fourth Panel in Third Row is Slider + Image Without n Seams
         self.n_seams_removed_panel = QVBoxLayout()
         self.n_seams_removed_panel.addWidget(self.n_seams_slider)
-        self.n_seams_removed_panel.addWidget(self.color_image_without_n_seams)
+        self.n_seams_removed_panel.addWidget(self.color_image_without_n_seams_pixmap)
         self.row3Layout.addLayout(self.n_seams_removed_panel)
 
         self.mainVLayout.addWidget(self.dropdown)
@@ -281,10 +302,11 @@ class MainWindow(QWidget):
     def display_original_image_with_highlighted_seam(self):
         self.seam = lab.minimum_energy_seam(self.cumulative_energy_map)
         original_pixels = self.color_image["pixels"]
+        red_rgb = (255, 0, 0)
         self.color_image_with_highlighted_seam = {
             **self.color_image,
             "pixels": [
-                (pixel if i not in self.seam else (255, 0, 0))
+                (pixel if i not in self.seam else red_rgb)
                 for i, pixel in enumerate(original_pixels)
             ],
         }
@@ -298,9 +320,15 @@ class MainWindow(QWidget):
         self.display_energy_image()
         self.display_cumulative_energy_map()
         self.display_original_image_with_highlighted_seam()
+        self.display_n_seams_removed()
 
     def display_n_seams_removed(self):
-        return
+        n_seams = self.n_seams_slider.value()
+        self.color_image_without_n_seams = lab.seam_carving(self.color_image, n_seams)
+        scaled_pixmap = self.create_pixmap_from_color_image(
+            self.color_image_without_n_seams
+        )
+        self.color_image_without_n_seams_pixmap.setPixmap(scaled_pixmap)
 
 
 if __name__ == "__main__":

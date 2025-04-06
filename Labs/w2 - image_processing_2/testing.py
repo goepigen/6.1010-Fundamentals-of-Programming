@@ -44,6 +44,3 @@ if __name__ == "__main__":
     energy = compute_energy(grey)
     cem = cumulative_energy_map(energy)
     seam = minimum_energy_seam(cem)
-
-    def pn():
-        return pni(smallfrog_energy, energy)

@@ -2,10 +2,8 @@
 
 import os
 import lab
-import types
 import pickle
 import hashlib
-import collections
 
 import pytest
 

@@ -49,9 +49,9 @@ def sharpened(image, n):
     """
     kernel = sharpen_kernel(n)
 
-    sharpened = correlate(image, kernel, "extend")
+    sharpened_image = correlate(image, kernel, "extend")
 
-    return sharpened
+    return sharpened_image
 
 
 def edges(image):
@@ -160,6 +160,8 @@ def round_and_clip_image(image):
             rounded_pixel = 255
         elif pixel < 0:
             rounded_pixel = 0
+        # More concise alternative is
+        # rounded_pixel = max(0, min(255, round(pixel)))
         result["pixels"].append(rounded_pixel)
 
     return result
@@ -346,14 +348,15 @@ def filter_cascade(filters):
     output as applying each of the individual ones in turn.
     """
 
-    def accumulate(image):
-        result = image
+    def combine_filters(image):
+        processed_image = image
         for f in filters:
-            result = f(result)
+            processed_image = f(processed_image)
 
-        return result
+        return processed_image
 
-    return lambda image: accumulate(image)
+    return combine_filters
+    # return lambda image: reduce(lambda img, f: f(img), filters, image)
 
 
 # SEAM CARVING
@@ -375,7 +378,6 @@ def seam_carving(image, ncols):
         cem = cumulative_energy_map(energy)
         seam = minimum_energy_seam(cem)
         result = image_without_seam(result, seam)
-        print(f"removed seam {_}")
 
     return result
 
@@ -390,12 +392,13 @@ def greyscale_image_from_color_image(image):
     Returns a greyscale image (represented as a dictionary).
     """
 
-    greyscale_image = image.copy()
-
-    greyscale_image["pixels"] = [
-        round(0.299 * r + 0.587 * g + 0.114 * b)
-        for r, g, b in greyscale_image["pixels"]
-    ]
+    greyscale_image = {
+        "height": image["height"],
+        "width": image["width"],
+        "pixels": [
+            round(0.299 * r + 0.587 * g + 0.114 * b) for r, g, b in image["pixels"]
+        ],
+    }
 
     return greyscale_image
 
@@ -626,37 +629,7 @@ def load_data(file_path):
     return data
 
 
-if __name__ == "__main__":
-    # code in this block will only be run when you explicitly run your script,
-    # and not when the tests are being run.  this is a good place for
-    # generating images, etc.
-
-    # color_image = load_color_image('test_images/tree.png')
-    # color_inverted = color_filter_from_greyscale_filter(inverted)
-    # inverted_color_image = color_inverted(color_image)
-    # save_color_image(inverted_color_image, 'interm_results/invtree.png')
-
-    # blur_filter = make_blur_filter(5)
-    # color_blur_filter = color_filter_from_greyscale_filter(blur_filter)
-    # blurred_color_image = color_blur_filter(color_image)
-    # save_color_image(blurred_color_image, 'interm_results/bluegill_blurred5.png')
-
-    # sharpen_filter = make_sharpen_filter(5)
-    # color_sharpen_filter = color_filter_from_greyscale_filter(sharpen_filter)
-    # sharpened_color_image = color_sharpen_filter(color_image)
-    # save_color_image(sharpened_color_image, 'interm_results/bluegill_sharpened5.png')
-
-    # blur_filter = make_blur_filter(5)
-    # sharpen_filter = make_sharpen_filter(5)
-    # invert_filter = inverted
-    # edges_filter = edges
-
-    # def produce(color_image, filters, output_file):
-    #     filter = filter_cascade(filters)
-    #     result = filter(color_image)
-    #     save_color_image(result, output_file)
-
-    # Remove 100 seams
-    # im = lab.load_color_image("test_images/twocats.png")
-    # result = lab.seam_carving(im, 100)
-    # lab.save_color_image(result, "test_personal_results/twocats100seams.png")
+# if __name__ == "__main__":
+#     im = load_color_image("test_images/twocats.png")
+#     res = seam_carving(im, 100)
+#     save_color_image(res, "test_personal_results/twocats100seams.png")
