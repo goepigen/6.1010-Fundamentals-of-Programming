@@ -1,0 +1,69 @@
+.venv
+__pycache__/
+*.py[cod]
+Labs/w2 - image_processing_2/test_personal
+Labs/w2 - image_processing_2/test_personal_results
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+env/
+venv/
+.venv/
+ENV/
+.Python
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VSCode settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# MacOS & system files
+.DS_Store
+Thumbs.db
+
+# Testing / coverage
+htmlcov/
+.tox/
+.nox/
+coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# MyPy & other tooling
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+
+# Local environment variables
+.env
+.env.*
+
+# SQLite / db files
+*.sqlite3
+*.db
+
+# Misc
+*.swp
+*.swo
+*.bak
