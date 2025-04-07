@@ -143,13 +143,13 @@ def actors_connecting_films(transformed_data, film1, film2):
 
 if __name__ == "__main__":
     with open("resources/tiny.pickle", "rb") as f:
-        tinydb = pickle.load(f)
+        tiny_db = pickle.load(f)
 
     with open("resources/small.pickle", "rb") as f:
-        smalldb = pickle.load(f)
+        small_db = pickle.load(f)
 
     with open("resources/large.pickle", "rb") as f:
-        largedb = pickle.load(f)
+        large_db = pickle.load(f)
 
     with open("resources/names.pickle", "rb") as f:
         names = pickle.load(f)
@@ -158,7 +158,14 @@ if __name__ == "__main__":
     # (not when imported from test.py), so this is a good place to put code
     # used, for example, to generate the results for the online questions.
 
-    large_tdb = transform_data(largedb)
-    tiny_tdb = transform_data(tinydb)
+    large_tdb = transform_data(large_db)
+    small_tdb = transform_data(small_db)
+    tiny_tdb = transform_data(tiny_db)
 
     # sum([len(actors_with_bacon_number(tdb, i)) for i in range()])
+
+    actor_id = 2876669
+
+    first_result = bacon_path(small_tdb, actor_id)
+
+    # second_result = lab.bacon_path(small_tdb, actor_id)
