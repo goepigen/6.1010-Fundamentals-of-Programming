@@ -136,10 +136,18 @@ def actor_to_goal_path_with_films(transformed_data, actor_id, goal_test_fn):
     return actors_to_goal_path_with_films(transformed_data, [actor_id], goal_test_fn)
 
 
-# def actors_connecting_films(transformed_data, film_id_1, film_id_2):
-#     actors_to_goal_path_with_films(
-#         transformed_data,
-#     )
+def actors_connecting_films(transformed_data, film_id_1, film_id_2):
+    actors_in_film_1 = transformed_data["films"].setdefault(film_id_1, None)
+    actors_in_film_2 = transformed_data["films"].setdefault(film_id_2, None)
+
+    def goal_test_fn(actor_id):
+        return actor_id in actors_in_film_2
+
+    path = actors_to_goal_path_with_films(
+        transformed_data, actors_in_film_1, goal_test_fn
+    )
+
+    return [item[1] for item in path] if path is not None else None
 
 
 def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
@@ -158,6 +166,9 @@ def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
         If a path is found, returns a tuple of actor ids, starting with actor_id_1, ending with actor_id_2.
         If a path is not found, returns None.
     """
+    if actor_ids == None:
+        return None
+
     for actor_id in actor_ids:
         if goal_test_fn(actor_id):
             return ((None, actor_id, None),)
