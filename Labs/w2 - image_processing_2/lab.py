@@ -9,7 +9,6 @@ Image Processing 2
 # (except in the last part of the lab; see the lab writeup for details)
 import math
 from PIL import Image
-import pickle
 
 # VARIOUS FILTERS
 
@@ -305,6 +304,8 @@ def color_filter_from_greyscale_filter(filt):
 
     def color_filter(image):
         pixels = image["pixels"]
+
+        # Split list of (r, g, b) tuples into three greyscale images
         red, green, blue = [
             create_image_from_pixels(p, image["height"], image["width"])
             for p in list(zip(*pixels))
@@ -370,16 +371,16 @@ def seam_carving(image, ncols):
     ncols (an integer) columns from the image. Returns a new image.
     """
 
-    result = image.copy()
+    carved = image.copy()
 
     for _ in range(ncols):
-        grey = greyscale_image_from_color_image(result)
+        grey = greyscale_image_from_color_image(carved)
         energy = compute_energy(grey)
         cem = cumulative_energy_map(energy)
         seam = minimum_energy_seam(cem)
-        result = image_without_seam(result, seam)
+        carved = image_without_seam(carved, seam)
 
-    return result
+    return carved
 
 
 # Optional Helper Functions for Seam Carving
@@ -620,6 +621,8 @@ def save_greyscale_image(image, filename, mode="PNG"):
 
 
 def load_data(file_path):
+    import pickle
+
     file = open(file_path, "rb")
 
     data = pickle.load(file)
