@@ -126,7 +126,11 @@ def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
     return actor_to_goal_path_with_films(transformed_data, actor_id_1, goal_test_fn)
 
 
-def actor_to_goal_path_with_films(transformed_data, actor_id_1, goal_test_fn):
+def actor_to_goal_path_with_films(transformed_data, actor_id, goal_test_fn):
+    return actors_to_goal_path_with_films(transformed_data, [actor_id], goal_test_fn)
+
+
+def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
     """
     Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
     actor_ids starting with actor_id_1 and ending with actor_id_2, representing a path in which each
@@ -142,12 +146,13 @@ def actor_to_goal_path_with_films(transformed_data, actor_id_1, goal_test_fn):
         If a path is found, returns a tuple of actor ids, starting with actor_id_1, ending with actor_id_2.
         If a path is not found, returns None.
     """
-    if goal_test_fn(actor_id_1):
-        return ((None, actor_id_1, None),)
+    for actor_id in actor_ids:
+        if goal_test_fn(actor_id):
+            return ((None, actor_id, None),)
 
-    paths = [((None, actor_id_1, None),)]
+    visited = {actor_id for actor_id in actor_ids}
 
-    visited = {actor_id_1}
+    paths = [((None, actor_id, None),) for actor_id in actor_ids]
 
     while paths:
         new_paths = []
