@@ -179,6 +179,30 @@ def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
     return None
 
 
+with open("resources/movies.pickle", "rb") as f:
+    movies_db = pickle.load(f)
+
+movie_id_to_name = {v: k for k, v in movies_db.items()}
+
+with open("resources/names.pickle", "rb") as f:
+    names = pickle.load(f)
+
+
+def actor_to_actor_film_path(transformed_data, actor_1, actor_2):
+    # Convert actor names to IDs if necessary
+    if isinstance(actor_1, str):
+        actor_1 = names[actor_1]
+    if isinstance(actor_2, str):
+        actor_2 = names[actor_2]
+
+    path_with_films = actor_to_actor_path_with_films(transformed_data, actor_1, actor_2)
+
+    return tuple(
+        [movie_id_to_name[movie_id] for movie_id in item[2]]
+        for item in path_with_films[1:]
+    )
+
+
 def actor_path(transformed_data, actor_id_1, goal_test_function):
     raise NotImplementedError("Implement me!")
 
@@ -196,9 +220,6 @@ if __name__ == "__main__":
 
     with open("resources/large.pickle", "rb") as f:
         large_db = pickle.load(f)
-
-    with open("resources/names.pickle", "rb") as f:
-        names = pickle.load(f)
 
     # additional code here will be run only when lab.py is invoked directly
     # (not when imported from test.py), so this is a good place to put code
@@ -221,3 +242,7 @@ if __name__ == "__main__":
     len_expected = 7
 
     first_result = actor_to_actor_path(large_tdb, actor_1, actor_2)
+
+    film_result = actor_to_actor_film_path(large_tdb, actor_1, actor_2)
+
+    question = actor_to_actor_film_path(large_tdb, "Gregg Henry", "Anton Radacic")
