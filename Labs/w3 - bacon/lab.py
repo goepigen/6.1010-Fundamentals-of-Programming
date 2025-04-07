@@ -26,14 +26,20 @@ def transform_data(raw_data):
     Returns:
         dictionary: dictionary { actor_id: { actor_id's } }
     """
-    tdb = {}
+    tdb = {"actors": {}, "films": {}}
 
-    def add_tdb_entry(actor_id_1, actor_id_2, film_id):
-        tdb.setdefault(actor_id_1, {}).setdefault(actor_id_2, set()).add(film_id)
+    def add_tdb_actor_entry(actor_id_1, actor_id_2, film_id):
+        tdb["actors"].setdefault(actor_id_1, {}).setdefault(actor_id_2, set()).add(
+            film_id
+        )
+
+    def add_tdb_film_entry(actor_id_1, actor_id_2, film_id):
+        tdb["films"].setdefault(film_id, set()).update([actor_id_1, actor_id_2])
 
     for actor_id_1, actor_id_2, film_id in raw_data:
-        add_tdb_entry(actor_id_1, actor_id_2, film_id)
-        add_tdb_entry(actor_id_2, actor_id_1, film_id)
+        add_tdb_actor_entry(actor_id_1, actor_id_2, film_id)
+        add_tdb_actor_entry(actor_id_2, actor_id_1, film_id)
+        add_tdb_film_entry(actor_id_1, actor_id_2, film_id)
 
     return tdb
 
@@ -53,7 +59,7 @@ def acted_together(transformed_data, actor_id_1, actor_id_2):
     if actor_id_1 == actor_id_2:
         return True
 
-    return actor_id_2 in transformed_data.get(actor_id_1, {})
+    return actor_id_2 in transformed_data["actors"].get(actor_id_1, {})
 
 
 def actors_with_bacon_number(transformed_data, bacon_number):
@@ -77,7 +83,7 @@ def actors_with_bacon_number(transformed_data, bacon_number):
     while current_bn < bacon_number and actors_with_prev_bn:
         current = set()
         for prev_id in actors_with_prev_bn:
-            for id in list(transformed_data[prev_id]):
+            for id in list(transformed_data["actors"][prev_id]):
                 if id not in visited:
                     current.add(id)
                     visited.add(id)
@@ -130,6 +136,12 @@ def actor_to_goal_path_with_films(transformed_data, actor_id, goal_test_fn):
     return actors_to_goal_path_with_films(transformed_data, [actor_id], goal_test_fn)
 
 
+# def actors_connecting_films(transformed_data, film_id_1, film_id_2):
+#     actors_to_goal_path_with_films(
+#         transformed_data,
+#     )
+
+
 def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
     """
     Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
@@ -161,7 +173,7 @@ def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
             last_id_in_path = path[-1][1]
 
             # get potential next actors to add to path
-            acted_with = transformed_data[last_id_in_path]
+            acted_with = transformed_data["actors"][last_id_in_path]
 
             for actor_id, film_ids in acted_with.items():
                 if actor_id in visited:
@@ -206,10 +218,6 @@ def actor_to_actor_film_path(transformed_data, actor_1, actor_2):
 def actor_path(transformed_data, actor_id, goal_test_fn):
     path = actor_to_goal_path_with_films(transformed_data, actor_id, goal_test_fn)
     return [item[1] for item in path] if path is not None else None
-
-
-def actors_connecting_films(transformed_data, film1, film2):
-    raise NotImplementedError("Implement me!")
 
 
 # HELPERS
