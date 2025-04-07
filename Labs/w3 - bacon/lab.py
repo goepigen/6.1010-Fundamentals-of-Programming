@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
     # sum([len(actors_with_bacon_number(tdb, i)) for i in range()])
 
-    actor_id = 2876669
+    actor_id = 197897
 
     first_result = bacon_path(small_tdb, actor_id)
 
