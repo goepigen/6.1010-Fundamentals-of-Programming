@@ -118,20 +118,15 @@ def actor_to_actor_path(transformed_data, actor_id_1, actor_id_2):
     """
     path = actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2)
 
-    if path != None:
-        return tuple((item[1] for item in path))
-
-    return None
-
-
-def verify_path(tdb, path):
-    return (
-        sum([path[i + 1] in tdb[actor_id] for i, actor_id in enumerate(path[0:-1])])
-        == len(path) - 1
-    )
+    return tuple(item[1] for item in path) if path is not None else None
 
 
 def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
+    goal_test_fn = lambda actor_id: actor_id == actor_id_2
+    return actor_to_goal_path_with_films(transformed_data, actor_id_1, goal_test_fn)
+
+
+def actor_to_goal_path_with_films(transformed_data, actor_id_1, goal_test_fn):
     """
     Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
     actor_ids starting with actor_id_1 and ending with actor_id_2, representing a path in which each
@@ -147,7 +142,7 @@ def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
         If a path is found, returns a tuple of actor ids, starting with actor_id_1, ending with actor_id_2.
         If a path is not found, returns None.
     """
-    if actor_id_1 == actor_id_2:
+    if goal_test_fn(actor_id_1):
         return ((None, actor_id_1, None),)
 
     paths = [((None, actor_id_1, None),)]
@@ -168,7 +163,7 @@ def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
                     continue
 
                 new_path = (*path, (last_id_in_path, actor_id, film_ids))
-                if actor_id == actor_id_2:
+                if goal_test_fn(actor_id):
                     return new_path
 
                 new_paths.append(new_path)
@@ -203,12 +198,23 @@ def actor_to_actor_film_path(transformed_data, actor_1, actor_2):
     )
 
 
-def actor_path(transformed_data, actor_id_1, goal_test_function):
-    raise NotImplementedError("Implement me!")
+def actor_path(transformed_data, actor_id, goal_test_fn):
+    path = actor_to_goal_path_with_films(transformed_data, actor_id, goal_test_fn)
+    return [item[1] for item in path] if path is not None else None
 
 
 def actors_connecting_films(transformed_data, film1, film2):
     raise NotImplementedError("Implement me!")
+
+
+# HELPERS
+
+
+def verify_path(tdb, path):
+    return (
+        sum([path[i + 1] in tdb[actor_id] for i, actor_id in enumerate(path[0:-1])])
+        == len(path) - 1
+    )
 
 
 if __name__ == "__main__":
