@@ -108,6 +108,7 @@ def actor_to_actor_path(transformed_data, actor_id_1, actor_id_2):
     while paths and not found:
         # get the last path in the list of paths with current shortest length
         path = paths[cur_len].pop()
+        print(path)
 
         # get the last actor_id in path
         last_id_in_path = path[-1]
@@ -166,6 +167,6 @@ if __name__ == "__main__":
 
     actor_id = 197897
 
-    first_result = bacon_path(small_tdb, actor_id)
+    first_result = bacon_path(large_tdb, actor_id)
 
     # second_result = lab.bacon_path(small_tdb, actor_id)
