@@ -304,7 +304,7 @@ def test_bacon_path_02():
 
     first_result = lab.bacon_path(db_small, actor_id)
     second_result = lab.bacon_path(db_small, actor_id)
-
+    breakpoint()
     check_valid_path(fset_small, first_result, 4724, actor_id, len_expected)
     check_valid_path(fset_small, second_result, 4724, actor_id, len_expected)
 
@@ -449,6 +449,7 @@ def _run_pickled_a2a_path_test(n):
     )
     with open(filename, "rb") as f:
         tests = pickle.load(f)
+
     for a1, a2, l in tests:
         path = lab.actor_to_actor_path(db_large, a1, a2)
         check_valid_path(fset_large, path, a1, a2, l)

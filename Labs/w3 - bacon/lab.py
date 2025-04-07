@@ -28,15 +28,12 @@ def transform_data(raw_data):
     """
     tdb = {}
 
-    def add_tdb_entry(actor_id_1, actor_id_2):
-        if actor_id_1 in tdb:
-            tdb[actor_id_1].add(actor_id_2)
-        else:
-            tdb[actor_id_1] = {actor_id_2}
+    def add_tdb_entry(actor_id_1, actor_id_2, film_id):
+        tdb.setdefault(actor_id_1, {}).setdefault(actor_id_2, set()).add(film_id)
 
-    for actor_id1, actor_id2, _ in raw_data:
-        add_tdb_entry(actor_id1, actor_id2)
-        add_tdb_entry(actor_id2, actor_id1)
+    for actor_id_1, actor_id_2, film_id in raw_data:
+        add_tdb_entry(actor_id_1, actor_id_2, film_id)
+        add_tdb_entry(actor_id_2, actor_id_1, film_id)
 
     return tdb
 
@@ -48,12 +45,15 @@ def acted_together(transformed_data, actor_id_1, actor_id_2):
 
     Args:
         transformed data: dictionary { actor_id: { actor_id's } }
+        actor_id_1: int
+        actor_id_2: int
     Returns"
-        boolean
+        bool: True if actor_id_1 and actor_id_2 have acted together
     """
     if actor_id_1 == actor_id_2:
         return True
-    return actor_id_2 in transformed_data.get(actor_id_1, set())
+
+    return actor_id_2 in transformed_data.get(actor_id_1, {})
 
 
 def actors_with_bacon_number(transformed_data, bacon_number):
@@ -68,7 +68,6 @@ def actors_with_bacon_number(transformed_data, bacon_number):
         bacon_number: int
     Returns:
         Set of actor_id's with bacon number bacon_number
-
     """
     current_bn = 0
     visited = {KEVIN_BACON_ID}
@@ -78,7 +77,7 @@ def actors_with_bacon_number(transformed_data, bacon_number):
     while current_bn < bacon_number and actors_with_prev_bn:
         current = set()
         for prev_id in actors_with_prev_bn:
-            for id in transformed_data[prev_id]:
+            for id in list(transformed_data[prev_id]):
                 if id not in visited:
                     current.add(id)
                     visited.add(id)
@@ -88,48 +87,94 @@ def actors_with_bacon_number(transformed_data, bacon_number):
 
 
 def bacon_path(transformed_data, actor_id):
+    """
+    Given a dictionary of actor_id/set of actor id pairs, obtains a tuple of actor_ids starting with
+    the id of Kevin Bacon and ending with actor_id.
+    Args:
+        transformed data: dictionary { actor_id: { actor_id's } }
+        actor_id: int
+    Returns:
+        If a path is found, returns a tuple of actor ids, starting with Kevin Bacon's id, ending with actor_id.
+        If a path is not found, returns None.
+    """
     return actor_to_actor_path(transformed_data, KEVIN_BACON_ID, actor_id)
 
 
 def actor_to_actor_path(transformed_data, actor_id_1, actor_id_2):
+    """
+    Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
+    actor_ids starting with actor_id_1 and ending with actor_id_2, representing a path in which each
+    successive actor has acted with the actors just before and just after in the path.
+    The path represents a way to go from actor_id_1 to actor_id_2 through such "acted together"
+    relationships. If no path is found, None is returned.
+
+    Args:
+        transformed data: dictionary { actor_id: { actor_id's } }
+        actor_id_1: int
+        actor_id_2: int
+    Returns:
+        If a path is found, returns a tuple of actor ids, starting with actor_id_1, ending with actor_id_2.
+        If a path is not found, returns None.
+    """
+    path = actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2)
+
+    if path != None:
+        return tuple((item[1] for item in path))
+
+    return None
+
+
+def verify_path(tdb, path):
+    return (
+        sum([path[i + 1] in tdb[actor_id] for i, actor_id in enumerate(path[0:-1])])
+        == len(path) - 1
+    )
+
+
+def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
+    """
+    Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
+    actor_ids starting with actor_id_1 and ending with actor_id_2, representing a path in which each
+    successive actor has acted with the actors just before and just after in the path.
+    The path represents a way to go from actor_id_1 to actor_id_2 through such "acted together"
+    relationships. If no path is found, None is returned.
+
+    Args:
+        transformed data: dictionary { actor_id: { actor_id's } }
+        actor_id_1: int
+        actor_id_2: int
+    Returns:
+        If a path is found, returns a tuple of actor ids, starting with actor_id_1, ending with actor_id_2.
+        If a path is not found, returns None.
+    """
     if actor_id_1 == actor_id_2:
-        return (actor_id_1,)
+        return ((None, actor_id_1, None),)
+
+    paths = [((None, actor_id_1, None),)]
 
     visited = {actor_id_1}
 
-    # paths starting at actor_id
-    paths = {0: [(actor_id_1,)]}
+    while paths:
+        new_paths = []
 
-    # the length of shortest paths currently in paths variable
-    cur_len = 0
+        for path in paths:
+            last_id_in_path = path[-1][1]
 
-    found = False
+            # get potential next actors to add to path
+            acted_with = transformed_data[last_id_in_path]
 
-    while paths and not found:
-        # get the last path in the list of paths with current shortest length
-        path = paths[cur_len].pop()
-        print(path)
+            for actor_id, film_ids in acted_with.items():
+                if actor_id in visited:
+                    continue
 
-        # get the last actor_id in path
-        last_id_in_path = path[-1]
-
-        # get potential next actors to add to path
-        next_ids = transformed_data[last_id_in_path]
-        for id in next_ids:
-            if id not in visited:
-                # create a new path with one extra actor id
-                new_path = (*path, id)
-                paths.setdefault(cur_len + 1, []).append(new_path)
-                visited.add(id)
-                if id == actor_id_2:
-                    # if we reach actor_id_2, we break out of the for loop.
-                    found = True
+                new_path = (*path, (last_id_in_path, actor_id, film_ids))
+                if actor_id == actor_id_2:
                     return new_path
-        # if we popped the last path with length cur_len then remove that key and increment cur_len
-        # so we can check paths with one extra element
-        if not paths[cur_len]:
-            del paths[cur_len]
-            cur_len += 1
+
+                new_paths.append(new_path)
+                visited.add(actor_id)
+
+        paths = new_paths
 
     return None
 
@@ -165,8 +210,14 @@ if __name__ == "__main__":
 
     # sum([len(actors_with_bacon_number(tdb, i)) for i in range()])
 
-    actor_id = 197897
+    # actor_id = 197897
 
-    first_result = bacon_path(large_tdb, actor_id)
+    # first_result = bacon_path(large_tdb, actor_id)
 
     # second_result = lab.bacon_path(small_tdb, actor_id)
+
+    actor_1 = 1345462
+    actor_2 = 89614
+    len_expected = 7
+
+    first_result = actor_to_actor_path(large_tdb, actor_1, actor_2)
