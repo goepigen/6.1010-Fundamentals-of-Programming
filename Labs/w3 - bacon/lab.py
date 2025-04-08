@@ -17,14 +17,16 @@ KEVIN_BACON_ID = 4724
 
 def transform_data(raw_data):
     """
-    Given raw_data, transform into a dictionary where keys are all the actor_id's that appear
-    in the list, and values are sets of actors the actor_id has acted with (ids of actors that
-    have appeared in some tuple with actor_id).
+    Transforms raw_data into a dictionary.
 
     Args:
         raw_data: list of (actor_id_1, actor_id_2, film_id)
     Returns:
-        dictionary: dictionary { actor_id: { actor_id's } }
+        dictionary:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
     """
     tdb = {"actors": {}, "films": {}}
 
@@ -46,11 +48,14 @@ def transform_data(raw_data):
 
 def acted_together(transformed_data, actor_id_1, actor_id_2):
     """
-    Given a dictionary of actor_id/set of actor ids pairs, checks whether value actor_id_2
-    is contained in the set of values associated with key actor_id_1 in the dictionary.
+    Returns True if actors 1 and 2 have acted together in a movie, False otherwise.
 
     Args:
-        transformed data: dictionary { actor_id: { actor_id's } }
+        transformed data:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
         actor_id_1: int
         actor_id_2: int
     Returns"
@@ -64,13 +69,14 @@ def acted_together(transformed_data, actor_id_1, actor_id_2):
 
 def actors_with_bacon_number(transformed_data, bacon_number):
     """
-    Given a dictionary of actor_id/set of actor id pairs, obtains the set of values (actor ids)
-    associated with Kevin Bacon's id in the dictionary (bacon number 1), then obtains the
-    values in the dictionary associated with those ids (bacon number 2), and so on until the set obtained
-    is associated with bacon number bacon_number, at which point the set of ids is returned.
+    Returns a set of the actor_id's that have bacon number bacon_number.
 
     Args:
-        transformed data: dictionary { actor_id: { actor_id's } }
+        transformed data:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
         bacon_number: int
     Returns:
         Set of actor_id's with bacon number bacon_number
@@ -94,10 +100,15 @@ def actors_with_bacon_number(transformed_data, bacon_number):
 
 def bacon_path(transformed_data, actor_id):
     """
-    Given a dictionary of actor_id/set of actor id pairs, obtains a tuple of actor_ids starting with
-    the id of Kevin Bacon and ending with actor_id.
+    Returns a tuple of actor_ids starting with the id of Kevin Bacon and ending with actor_id.
+    This tuple represents a chain of "acted together" relationships between any two adjacent actors
+    in the list.
     Args:
-        transformed data: dictionary { actor_id: { actor_id's } }
+        transformed data
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
         actor_id: int
     Returns:
         If a path is found, returns a tuple of actor ids, starting with Kevin Bacon's id, ending with actor_id.
@@ -108,14 +119,17 @@ def bacon_path(transformed_data, actor_id):
 
 def actor_to_actor_path(transformed_data, actor_id_1, actor_id_2):
     """
-    Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
-    actor_ids starting with actor_id_1 and ending with actor_id_2, representing a path in which each
-    successive actor has acted with the actors just before and just after in the path.
+    Returns a tuple of shortest length of actor_ids starting with actor_id_1 and ending with actor_id_2,
+    representing a path in which each successive actor has acted with the adjacent actors the tuple.
     The path represents a way to go from actor_id_1 to actor_id_2 through such "acted together"
     relationships. If no path is found, None is returned.
 
     Args:
-        transformed data: dictionary { actor_id: { actor_id's } }
+        transformed data:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
         actor_id_1: int
         actor_id_2: int
     Returns:
@@ -128,42 +142,65 @@ def actor_to_actor_path(transformed_data, actor_id_1, actor_id_2):
 
 
 def actor_to_actor_path_with_films(transformed_data, actor_id_1, actor_id_2):
+    """
+    Returns a path from actor_id_1 to actor_id_2 that includes, for each "acted with" relationship in the path
+    (a tuple), the film the actors acted together in.
+
+    Args:
+        transformed_data:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
+        actor_id_1: int
+        actor_id_2: int
+    Returns:
+        Returns a tuple of tuples, where successive inner tuples have forms (aid_1, aid_2, film_id_1),
+        (aid2, aid3, film_id_2), (aid3, aid4, film_id_3), and so on.
+    """
     goal_test_fn = lambda actor_id: actor_id == actor_id_2
     return actor_to_goal_path_with_films(transformed_data, actor_id_1, goal_test_fn)
 
 
 def actor_to_goal_path_with_films(transformed_data, actor_id, goal_test_fn):
+    """
+    Returns a shortest path from actor_id_1 to the first actor_id for which goal_test_fn returns
+    True when passed the actor_id as an argument.
+
+    Args:
+        transformed_data:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
+        actor_id_1: int
+        goal_test_fn: actor_id -> bool
+    Returns:
+        Returns a tuple of tuples, where successive inner tuples have forms (aid_1, aid_2, film_id_1),
+        (aid2, aid3, film_id_2), (aid3, aid4, film_id_3), and so on, representing a chain of "acted together
+        in the same film" relationships between two actors.
+        If a path is not found, returns None.
+    """
     return actors_to_goal_path_with_films(transformed_data, [actor_id], goal_test_fn)
-
-
-def actors_connecting_films(transformed_data, film_id_1, film_id_2):
-    actors_in_film_1 = transformed_data["films"].setdefault(film_id_1, None)
-    actors_in_film_2 = transformed_data["films"].setdefault(film_id_2, None)
-
-    def goal_test_fn(actor_id):
-        return actor_id in actors_in_film_2
-
-    path = actors_to_goal_path_with_films(
-        transformed_data, actors_in_film_1, goal_test_fn
-    )
-
-    return [item[1] for item in path] if path is not None else None
 
 
 def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
     """
-    Given a dictionary of actor_id/set of actor id pairs and two actor_ids, obtains a tuple of
-    actor_ids starting with actor_id_1 and ending with actor_id_2, representing a path in which each
-    successive actor has acted with the actors just before and just after in the path.
-    The path represents a way to go from actor_id_1 to actor_id_2 through such "acted together"
-    relationships. If no path is found, None is returned.
+    Returns a shortest path from any of actor_ids to the first actor_id for which goal_test_fn returns
+    True when passed the actor_id as an argument.
 
     Args:
-        transformed data: dictionary { actor_id: { actor_id's } }
-        actor_id_1: int
-        actor_id_2: int
+        transformed data:
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
+        actor_ids: list of int
+        goal_test_fn: actor_id -> bool
     Returns:
-        If a path is found, returns a tuple of actor ids, starting with actor_id_1, ending with actor_id_2.
+        Returns a tuple of tuples, where successive inner tuples have forms (aid_1, aid_2, film_id_1),
+        (aid2, aid3, film_id_2), (aid3, aid4, film_id_3), and so on, representing a chain of "acted together
+        in the same film" relationships between two actors.
         If a path is not found, returns None.
     """
     if actor_ids == None:
@@ -202,16 +239,37 @@ def actors_to_goal_path_with_films(transformed_data, actor_ids, goal_test_fn):
     return None
 
 
+# dictionary { movie_name: movie_id }
 with open("resources/movies.pickle", "rb") as f:
     movies_db = pickle.load(f)
 
+# dictionary { movie_id: movie_name }
 movie_id_to_name = {v: k for k, v in movies_db.items()}
 
+# dictionary { actor_name: actor_id }
 with open("resources/names.pickle", "rb") as f:
     names = pickle.load(f)
 
 
 def actor_to_actor_film_path(transformed_data, actor_1, actor_2):
+    """
+    Returns a tuple containing lists of movies, where each list contains the movies that two
+    actors acted together in. These actors are part of a shortest path of actors between actor 1
+    and actor 2.
+
+    Args:
+        transformed_data
+            {
+                actors: { actor_id: { actor_id: [film_ids]} },
+                films: { film_id: [actor_ids]}
+            }
+        actor_1: string representing actor name or int representing actor_id
+        actor_2: string representing actor name or int representing actor_id
+    Computes a path of actors between actor_1 and actor 2 based on "acted together" relationships.
+    Returns a tuple of lists, where list i represents all movies that actors at positions i-1 and i
+    acted together in.
+
+    """
     # Convert actor names to IDs if necessary
     if isinstance(actor_1, str):
         actor_1 = names[actor_1]
@@ -231,12 +289,31 @@ def actor_path(transformed_data, actor_id, goal_test_fn):
     return [item[1] for item in path] if path is not None else None
 
 
+def actors_connecting_films(transformed_data, film_id_1, film_id_2):
+    actors_in_film_1 = transformed_data["films"].setdefault(film_id_1, None)
+    actors_in_film_2 = transformed_data["films"].setdefault(film_id_2, None)
+
+    def goal_test_fn(actor_id):
+        return actor_id in actors_in_film_2
+
+    path = actors_to_goal_path_with_films(
+        transformed_data, actors_in_film_1, goal_test_fn
+    )
+
+    return [item[1] for item in path] if path is not None else None
+
+
 # HELPERS
 
 
-def verify_path(tdb, path):
+def verify_path(transformed_data, path):
     return (
-        sum([path[i + 1] in tdb[actor_id] for i, actor_id in enumerate(path[0:-1])])
+        sum(
+            [
+                path[i + 1] in transformed_data["actors"][actor_id]
+                for i, actor_id in enumerate(path[0:-1])
+            ]
+        )
         == len(path) - 1
     )
 
@@ -250,10 +327,6 @@ if __name__ == "__main__":
 
     with open("resources/large.pickle", "rb") as f:
         large_db = pickle.load(f)
-
-    # additional code here will be run only when lab.py is invoked directly
-    # (not when imported from test.py), so this is a good place to put code
-    # used, for example, to generate the results for the online questions.
 
     large_tdb = transform_data(large_db)
     small_tdb = transform_data(small_db)
