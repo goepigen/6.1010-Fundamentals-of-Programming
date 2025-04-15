@@ -289,23 +289,14 @@ def find_path(neighbors_fn, game, goal_test):
 
 
 def compute_moves_from_path(path):
-    player_positions = [state["player position"] for state in path]
+    positions = [state["player position"] for state in path]
     moves = []
-    for i, pos in enumerate(player_positions[1:]):
-        row = pos[0]
-        prev_row = player_positions[i][0]
-        col = pos[1]
-        prev_col = player_positions[i][1]
-        if row == prev_row:
-            if col == prev_col + 1:
-                moves.append("right")
-            if col == prev_col - 1:
-                moves.append("left")
-        elif col == prev_col:
-            if row == prev_row + 1:
-                moves.append("down")
-            if row == prev_row - 1:
-                moves.append("up")
+
+    for (r1, c1), (r2, c2) in zip(positions, positions[1:]):
+        if r2 == r1:
+            moves.append("right" if c2 > c1 else "left")
+        elif c2 == c1:
+            moves.append("down" if r2 > r1 else "up")
     return moves
 
 
