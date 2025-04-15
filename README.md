@@ -12,3 +12,7 @@ Run `python ui.py` to see a quick and dirty UI I made (using PyQt6) that display
 
 ## Lab 03 - Bacon Number
 
+## Lab 04 - Snekoban
+
+
+
