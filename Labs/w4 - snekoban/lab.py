@@ -255,7 +255,7 @@ def find_path(neighbors_fn, game, goal_test):
 
     initial_hashable_state = (
         game["state"]["player position"],
-        tuple(game["state"]["computer"]),
+        frozenset(game["state"]["computer"]),
     )
 
     agenda = [(initial_state,)]
@@ -273,7 +273,7 @@ def find_path(neighbors_fn, game, goal_test):
             new_game["state"] = neighbor_state
             hashable_neighbor_state = (
                 neighbor_state["player position"],
-                tuple(neighbor_state["computer"]),
+                frozenset(neighbor_state["computer"]),
             )
 
             if hashable_neighbor_state not in visited:
