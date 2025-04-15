@@ -8,10 +8,6 @@ Snekoban Game
 # import pprint # optional import
 
 # NO ADDITIONAL IMPORTS!
-import os
-import time
-
-TEST_DIRECTORY = os.path.dirname(__file__)
 
 DIRECTION_VECTOR = {
     "up": (-1, 0),
@@ -41,36 +37,39 @@ def make_new_game(level_description):
     """
     height = len(level_description)
     width = len(level_description[0])
+
     game = {
-        "player position": None,
-        "wall": set(),
-        "computer": set(),
-        "target": set(),
-        "empty": set(),
-        "width": width,
-        "height": height,
+        "params": {
+            "width": width,
+            "height": height,
+            "wall": set(),
+            "target": set(),
+        },
+        "state": {"computer": set(), "player position": None},
     }
 
     for row_i, _ in enumerate(level_description):
         for col_j, __ in enumerate(level_description[row_i]):
             position = (row_i, col_j)
             objs = level_description[row_i][col_j]
-            if not objs:
-                game["empty"].add(position)
-            else:
-                for obj in objs:
-                    if obj == "wall":
-                        game["wall"].add(position)
-                    elif obj == "target":
-                        game["target"].add(position)
-                    elif obj == "computer":
-                        game["computer"].add(position)
-                    elif obj == "player":
-                        game["player position"] = position
+
+            for obj in objs:
+                if obj == "wall":
+                    game["params"]["wall"].add(position)
+                elif obj == "target":
+                    game["params"]["target"].add(position)
+                elif obj == "computer":
+                    game["state"]["computer"].add(position)
+                elif obj == "player":
+                    game["state"]["player position"] = position
     return {
-        **game,
-        "wall": frozenset(game["wall"]),
-        "target": frozenset(game["target"]),
+        "params": {
+            "width": width,
+            "height": height,
+            "wall": frozenset(game["params"]["wall"]),
+            "target": frozenset(game["params"]["target"]),
+        },
+        "state": game["state"],
     }
 
 
@@ -80,10 +79,10 @@ def victory_check(game):
     return a Boolean: True if the given game satisfies the victory condition,
     and False otherwise.
     """
-    if not game["target"] or not game["computer"]:
+    if not game["params"]["target"] or not game["state"]["computer"]:
         return False
 
-    return game["target"] == game["computer"]
+    return game["params"]["target"] == game["state"]["computer"]
 
 
 def step_game(game, direction):
@@ -96,26 +95,30 @@ def step_game(game, direction):
 
     This function should not mutate its input.
     """
-    new_game = {
-        **game,
-        "player position": game["player position"],
-        "computer": set(game["computer"]),
-        "empty": set(game["empty"]),
-    }
+    player_pos = game["state"]["player position"]
 
-    player_pos = new_game["player position"]
     adjacent_pos = tuple(
         (v1 + v2 for v1, v2 in zip(player_pos, DIRECTION_VECTOR[direction]))
     )
 
-    # If adjacent position is a wall, do nothing and return.
-    if adjacent_pos in new_game["wall"]:
-        return new_game
+    # If adjacent position is a wall, do nothing and return None.
+    if adjacent_pos in game["params"]["wall"]:
+        return game
 
-    # Get the objects in the adjacent position
-    adjacent_objs = get_objects_at_position(new_game, adjacent_pos)
+    new_game = {
+        "params": game["params"],
+        "state": {
+            "player position": game["state"]["player position"],
+            "computer": set(game["state"]["computer"]),
+        },
+    }
+
+    # Get the objects in the adjacent position ("target, computer, wall")
+
+    adjacent_pos_is_empty = is_position_empty(game, adjacent_pos)
+
     # If adjacent position is a computer
-    if "computer" in adjacent_objs:
+    if adjacent_pos in game["state"]["computer"]:
         # get the adjacent to the computer position
         computer_adjacent_pos = tuple(
             (v1 + v2 for v1, v2 in zip(adjacent_pos, DIRECTION_VECTOR[direction]))
@@ -123,31 +126,37 @@ def step_game(game, direction):
         # if the adjacent position to the computer contains a wall or another computer, do
         # nothing and return.
         if (
-            computer_adjacent_pos in new_game["wall"]
-            or computer_adjacent_pos in new_game["computer"]
+            computer_adjacent_pos in new_game["params"]["wall"]
+            or computer_adjacent_pos in new_game["state"]["computer"]
         ):
-            return new_game
+            return game
         # if the adjacent position to the computer position is empty or contains a target (and
         # since we've already checked for a computer in this position we know the target is by
         # itself) then move the player, move the computer, and return.
+        computer_adjacent_pos_is_empty = is_position_empty(game, computer_adjacent_pos)
         if (
-            computer_adjacent_pos in new_game["empty"]
-            or computer_adjacent_pos in new_game["target"]
+            computer_adjacent_pos_is_empty
+            or computer_adjacent_pos in new_game["params"]["target"]
         ):
-            update_player_position(new_game, player_pos, adjacent_pos)
+            new_game["state"]["player position"] = adjacent_pos
             # move the computer
-            new_game["computer"].remove(adjacent_pos)
-            new_game["computer"].add(computer_adjacent_pos)
-            # if the new computer position was originally empty, remove that position from the
-            # empty positions in game
-            if computer_adjacent_pos in new_game["empty"]:
-                new_game["empty"].remove(computer_adjacent_pos)
+            new_game["state"]["computer"].remove(adjacent_pos)
+            new_game["state"]["computer"].add(computer_adjacent_pos)
             return new_game
     # If adjacent position is a target (note that we know at this point that there is no computer
     # in this position), move the player to the adjacent position.
-    elif "target" in adjacent_objs or "empty" in adjacent_objs:
-        update_player_position(new_game, player_pos, adjacent_pos)
+    elif adjacent_pos in game["params"]["target"] or adjacent_pos_is_empty:
+        new_game["state"]["player position"] = adjacent_pos
         return new_game
+
+
+def is_position_empty(game, pos):
+    return (
+        pos not in game["params"]["wall"]
+        and pos not in game["state"]["computer"]
+        and pos not in game["params"]["target"]
+        and pos not in game["state"]["player position"]
+    )
 
 
 def dump_game(game):
@@ -162,19 +171,27 @@ def dump_game(game):
     own.
     """
 
-    width = game["width"]
-    height = game["height"]
+    width = game["params"]["width"]
+    height = game["params"]["height"]
 
     level_representation = [[[] for i in range(width)] for j in range(height)]
 
     for k, v in game.items():
-        if k in ["width", "height", "empty"]:
-            continue
-        if k == "player position":
-            level_representation[v[0]][v[1]].append("player")
-        else:
-            for pos in v:
-                level_representation[pos[0]][pos[1]].append(k)
+        if k == "params":
+            for k1, v1 in v.items():
+                if k1 in ["width", "height"]:
+                    continue
+                if k1 in ["wall", "target"]:
+                    for pos in v1:
+                        level_representation[pos[0]][pos[1]].append(k1)
+
+        if k == "state":
+            for k1, v1 in v.items():
+                if k1 == "player position":
+                    level_representation[v1[0]][v1[1]].append("player")
+                if k1 == "computer":
+                    for pos in v1:
+                        level_representation[pos[0]][pos[1]].append(k1)
 
     return level_representation
 
@@ -189,33 +206,16 @@ def solve_puzzle(game):
 
     If the given level cannot be solved, return None.
     """
-    game_params = {
-        "wall": game["wall"],
-        "target": game["target"],
-        "width": game["width"],
-        "height": game["height"],
-    }
 
-    initial_state = get_state_with_last_direction(game)
+    state_path = find_path(get_neighbor_states, game, victory_check)
 
-    state_path_with_directions = find_path(
-        get_neighbor_states, initial_state, game_params, victory_check
-    )
-
-    if state_path_with_directions is None:
+    if state_path is None:
         return None
 
-    return [state[0] for state in state_path_with_directions[1:]]
+    return compute_moves_from_path(state_path)
 
 
 # HELPERS
-def get_state_with_last_direction(game, last_direction=None):
-    return (
-        last_direction,
-        game["player position"],
-        frozenset(game["computer"]),
-        frozenset(game["empty"]),
-    )
 
 
 def get_full_state(state, game_params):
@@ -223,107 +223,106 @@ def get_full_state(state, game_params):
         **game_params,
         "player position": state[1],
         "computer": set(state[2]),
-        "empty": set(state[3]),
     }
 
 
 def get_neighbor_states(game):
     neighbor_states = []
-    neighbor_full_states = []
-    t0 = time.time()
     for direction in DIRECTION_VECTOR:
-        t = time.time()
-        neighbor_full_state = step_game(game, direction)
-        t1 = time.time()
-        neighbor_state = get_state_with_last_direction(neighbor_full_state, direction)
-        t2 = time.time()
+        neighbor_game = step_game(game, direction)
+        if neighbor_game == game:
+            continue
+        neighbor_state = neighbor_game["state"]
         neighbor_states.append(neighbor_state)
-        t3 = time.time()
-        neighbor_full_states.append(neighbor_full_state)
-        t4 = time.time()
-    print(
-        f"Total time: {time.time()-t0:.6f}, 1: {t1-t:.6f}, 2: {t2-t1:.6f}, 3: {t3-t2:.6f}, 4: {t4-t3:.6f}"
-    )
-    return [neighbor_states, neighbor_full_states]
+
+    return neighbor_states
 
 
-def find_path(neighbors_fn, initial_state, game_params, goal_test):
-    game = get_full_state(initial_state, game_params)
+def find_path(neighbors_fn, game, goal_test):
 
     if goal_test(game):
-        return (initial_state,)
+        return (game["state"],)
+
+    new_game = {
+        "params": game["params"],
+        "state": {
+            "player position": game["state"]["player position"],
+            "computer": game["state"]["computer"],
+        },
+    }
+
+    initial_state = new_game["state"]
+
+    initial_hashable_state = (
+        game["state"]["player position"],
+        tuple(game["state"]["computer"]),
+    )
 
     agenda = [(initial_state,)]
-    visited = {initial_state}
 
-    sum = 0
-    tt = time.time()
+    visited = {initial_hashable_state}
+
     while agenda:
         this_path = agenda.pop(0)
         terminal_state = this_path[-1]
-        game = get_full_state(terminal_state, game_params)
 
-        t0 = time.time()
-        neighbors = neighbors_fn(game)
-        t1 = time.time()
-        sum += t1 - t0
-        for neighbor_state, game in zip(*neighbors):
-            # start_time = time.time()
-            if neighbor_state not in visited:
+        new_game["state"] = terminal_state
+
+        neighbor_states = neighbors_fn(new_game)
+        for neighbor_state in neighbor_states:
+            new_game["state"] = neighbor_state
+            hashable_neighbor_state = (
+                neighbor_state["player position"],
+                tuple(neighbor_state["computer"]),
+            )
+
+            if hashable_neighbor_state not in visited:
                 new_path = this_path + (neighbor_state,)
 
-                if goal_test(game):
-                    print(sum, f"{time.time() - tt: .6f}")
+                if goal_test(new_game):
                     return new_path
 
                 agenda.append(new_path)
-                visited.add(neighbor_state)
-            # t1 = time.time()
+                visited.add(hashable_neighbor_state)
 
-            # print(f"{t1 - start_time:.6f}")
     return None
 
 
-def update_player_position(game, player_pos, adjacent_pos):
-    # check objects in the player's original position
-    objs_at_player_position = get_objects_at_position(game, player_pos)
-    # if there are no objects (ie, if there was no target in that position)
-    if not objs_at_player_position:
-        # then the original player position becomes empty
-        game["empty"].add(player_pos)
-    # move the player to the adjacent position
-    game["player position"] = adjacent_pos
-    # if the adjacent position was empty, remove that position from the empty positions
-    if adjacent_pos in game["empty"]:
-        game["empty"].remove(adjacent_pos)
+def compute_moves_from_path(path):
+    player_positions = [state["player position"] for state in path]
+    moves = []
+    for i, pos in enumerate(player_positions[1:]):
+        row = pos[0]
+        prev_row = player_positions[i][0]
+        col = pos[1]
+        prev_col = player_positions[i][1]
+        if row == prev_row:
+            if col == prev_col + 1:
+                moves.append("right")
+            if col == prev_col - 1:
+                moves.append("left")
+        elif col == prev_col:
+            if row == prev_row + 1:
+                moves.append("down")
+            if row == prev_row - 1:
+                moves.append("up")
+    return moves
 
 
-def get_objects_at_position(game, position):
-    objects = set()
-    if position in game["empty"]:
-        objects.add("empty")
-    if position in game["target"]:
-        objects.add("target")
-    if position in game["computer"]:
-        objects.add("computer")
-    if position in game["wall"]:
-        objects.add("wall")
-
-    return objects
-
+import json
 
 if __name__ == "__main__":
-    level_description = [
-        [["wall"], ["wall"], ["wall"], ["wall"], [], []],
-        [["wall"], [], ["target"], ["wall"], [], []],
-        [["wall"], [], [], ["wall"], ["wall"], ["wall"]],
-        [["wall"], ["target", "computer"], ["player"], [], [], ["wall"]],
-        [["wall"], [], [], ["computer"], [], ["wall"]],
-        [["wall"], [], [], ["wall"], ["wall"], ["wall"]],
-        [["wall"], ["wall"], ["wall"], ["wall"], [], []],
-    ]
+    # level_description = [
+    #     [["wall"], ["wall"], ["wall"], ["wall"], [], []],
+    #     [["wall"], [], ["target"], ["wall"], [], []],
+    #     [["wall"], [], [], ["wall"], ["wall"], ["wall"]],
+    #     [["wall"], ["target", "computer"], ["player"], [], [], ["wall"]],
+    #     [["wall"], [], [], ["computer"], [], ["wall"]],
+    #     [["wall"], [], [], ["wall"], ["wall"], ["wall"]],
+    #     [["wall"], ["wall"], ["wall"], ["wall"], [], []],
+    # ]
 
-    game = make_new_game(level_description)
+    # game = make_new_game(level_description)
     # with open(
     #     os.path.join(TEST_DIRECTORY, "test_inputs/unit_movement_no_obstructions.txt")
     # ) as f:
@@ -331,5 +330,10 @@ if __name__ == "__main__":
 
     # for action in inputs:
     #     result = step_game(game, action)
+
+    with open("puzzles/tiny_002.json") as f:
+        level = json.load(f)
+
+    game = make_new_game(level)
 
     result = solve_puzzle(game)

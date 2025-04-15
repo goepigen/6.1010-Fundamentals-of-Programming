@@ -40,9 +40,9 @@ def compare_simulation(filename):
     ) as f:
         outputs = pickle.load(f)
     assert len(inputs) == len(outputs) != 0
-    # breakpoint()
     game = lab.make_new_game(copy.deepcopy(level))
     err_msg = compare_boards(lab.dump_game(game), level)
+
     if err_msg is not None:
         assert False, f"Unexpected results at setup: {err_msg}"
     for ix, (direction, (exp_dump, exp_win)) in enumerate(zip(inputs, outputs)):
@@ -58,7 +58,7 @@ def compare_simulation(filename):
             ), f"Unexpected results in step {ix}, moving {direction} starting from the following board ({err_msg}):\n\n{original_dump}\n\nYou can copy/paste this representation into the GUI to test."
         original_game = copy.deepcopy(game)
         original_dump = json.dumps(lab.dump_game(original_game))
-        win = lab.victory_check(game)
+
         assert original_game == game, "be careful not to modify the input game!"
         assert (
             lab.victory_check(game) == exp_win
