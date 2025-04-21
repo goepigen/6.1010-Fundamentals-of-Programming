@@ -117,7 +117,7 @@ def add_recipes(recipe_dicts):
     return merged_dict
 
 
-def cheapest_flat_recipe(recipes_db, food_name, forbidden_ings=()):
+def cheapest_flat_recipe(recipes_db, food_name, forbidden_ings=(), debug=False):
     """
     Given a recipes database and the name of a food (str), return a dictionary
     (mapping atomic food items to quantities) representing the cheapest full
@@ -134,14 +134,23 @@ def cheapest_flat_recipe(recipes_db, food_name, forbidden_ings=()):
     def recipe_cost(r):
         return sum(v * cost_by_atomic_ing[k] for k, v in r.items())
 
-    def cheapest_flat_recipe_rec(food_name):
+    def cheapest_flat_recipe_rec(food_name, depth=0):
+        indent = "  " * depth
+        if debug:
+            print(f"{indent}🔍 Checking: {food_name}")
         if food_name in forbidden_ings:
+            if debug:
+                print(f"{indent}🚫 Forbidden: {food_name}")
             return None
 
         if food_name in cost_by_atomic_ing:
+            if debug:
+                print(f"{indent}✅ Atomic: {food_name}")
             return {food_name: 1}
 
         if food_name not in ing_lists_by_compound:
+            if debug:
+                print(f"{indent}❓ No recipe: {food_name}")
             return None
 
         ing_lists = ing_lists_by_compound[food_name]
@@ -153,7 +162,7 @@ def cheapest_flat_recipe(recipes_db, food_name, forbidden_ings=()):
             missing_ingredient = False
             for ing_entry in ing_list:
                 ing_name = ing_entry[0]
-                ing_recipe = cheapest_flat_recipe_rec(ing_name)
+                ing_recipe = cheapest_flat_recipe_rec(ing_name, depth + 1)
                 if ing_recipe is None:
                     missing_ingredient = True
                     break
@@ -244,9 +253,11 @@ if __name__ == "__main__":
     with open("test_recipes/examples_filter.pickle", "rb") as f:
         test_data = pickle.load(f)
 
+    result = cheapest_flat_recipe(example_recipes_db, "burger", ("tomato",), True)
+
     # for target, filt in test_data:
-    target = "salt"
-    filt = ("salt",)
+    # target = "salt"
+    # filt = ("salt",)
     # graph = test._filter_graph(example_recipes_db, filt)
-    result = all_flat_recipes(example_recipes_db, target, filt)
+    # result = all_flat_recipes(example_recipes_db, target, filt)
     # expected = test_data[(target, filt)][0]
