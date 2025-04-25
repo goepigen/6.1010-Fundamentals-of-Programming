@@ -477,6 +477,7 @@ def test_safe_first_click_2d(test):
         outputs = pickle.load(f)
     with open(inp_fname, "rb") as f:
         inputs = pickle.load(f)
+
     for (game_params, reveals), output in zip(inputs, outputs):
         dims, mice = game_params
         nrows, ncols = dims

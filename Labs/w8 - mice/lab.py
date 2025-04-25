@@ -48,30 +48,14 @@ def get_2d_neighbors(r, c, nrows, ncols):
     >>> get_2d_neighbors(0, 0, 2, 2)
     [(0, 1), (1, 0), (1, 1)]
     """
-    return [
-        (r + i, c + j)
-        for i in [-1, 0, 1]
-        for j in [-1, 0, 1]
-        if (i, j) != (0, 0) and (0 <= r + i < nrows) and (0 <= c + j < ncols)
-    ]
+    return get_neighbors_nd((r, c), (nrows, ncols))
 
 
 def check_victory(game):
     """
     Returns True if the game is in a "won" state, False otherwise.
     """
-    nrows, ncols = game["dimensions"]
-    return all(
-        [
-            (
-                not game["visible"][r][c]
-                if (r, c) in game["mouse locations"]
-                else game["visible"][r][c]
-            )
-            for r in range(nrows)
-            for c in range(ncols)
-        ]
-    )
+    return check_victory_nd(game)
 
 
 # 2-D IMPLEMENTATION
@@ -104,24 +88,16 @@ def new_game_2d(nrows, ncols, mouse_locations):
         [False, False, False, False]
         [False, False, False, False]
     """
-
-    board = [[0] * ncols for _ in range(nrows)]
-
-    for r, c in mouse_locations:
-        board[r][c] = MOUSE
-
-    for r, c in mouse_locations:
-        neighbors = get_2d_neighbors(r, c, nrows, ncols)
-        for nr, nc in neighbors:
-            if board[nr][nc] != MOUSE:
-                board[nr][nc] += 1
+    dimensions = (nrows, ncols)
+    board = make_board(dimensions, mouse_locations)
 
     return {
-        "dimensions": (nrows, ncols),
+        "dimensions": dimensions,
         "board": board,
         "state": "ongoing",
         "visible": [[False] * ncols for _ in range(nrows)],
-        "mouse locations": mouse_locations,
+        "mouse locations": set(mouse_locations),
+        "first move": True,
     }
 
 
@@ -189,21 +165,23 @@ def reveal_2d(game, row, col):
         [True, False, True, True]
         [False, False, True, True]
     """
-    revealed = 0
-    if game["state"] == "ongoing" and not game["visible"][row][col]:
-        game["visible"][row][col] = True
-        revealed += 1
-        if game["board"][row][col] == MOUSE:
-            game["state"] = "lost"
-        else:
-            if game["board"][row][col] == 0:
-                neighbors = get_2d_neighbors(row, col, *game["dimensions"])
-                for nr, nc in neighbors:
-                    revealed += reveal_2d(game, nr, nc)
-            if check_victory(game):
-                game["state"] = "won"
+    return reveal_nd(game, (row, col))
 
-    return revealed
+    # revealed = 0
+    # if game["state"] == "ongoing" and not game["visible"][row][col]:
+    #     game["visible"][row][col] = True
+    #     revealed += 1
+    #     if game["board"][row][col] == MOUSE:
+    #         game["state"] = "lost"
+    #     else:
+    #         if game["board"][row][col] == 0:
+    #             neighbors = get_2d_neighbors(row, col, *game["dimensions"])
+    #             for nr, nc in neighbors:
+    #                 revealed += reveal_2d(game, nr, nc)
+    #         if check_victory(game):
+    #             game["state"] = "won"
+
+    # return revealed
 
 
 def render_2d(game, all_visible=False):
@@ -305,7 +283,7 @@ def get_neighbors_nd(pos, dim):
     ] + [(*pos[:-1], pos[-1] + i) for i in [-1, 1] if 0 <= pos[-1] + i < dim[-1]]
 
 
-def make_board(dim, initial_val=0):
+def make_ndim_array(dim, initial_val=0):
     """
     Creates an n-dimensional array populated with initial values initial_val.
 
@@ -318,7 +296,7 @@ def make_board(dim, initial_val=0):
     if len(dim) == 1:
         return dim[0] * [initial_val]
 
-    return [make_board(dim[1:], initial_val) for _ in range(dim[0])]
+    return [make_ndim_array(dim[1:], initial_val) for _ in range(dim[0])]
 
 
 def set_val_at_board_pos(board, pos, val):
@@ -389,6 +367,31 @@ def check_victory_nd(game):
 # N-D IMPLEMENTATION
 
 
+def make_board(dimensions, mouse_locations):
+    """
+    Creates an n-dimensional array and populates the array based on mouse_locations.
+    Locations in mouse_locations are populated with the value of the variable MOUSE.
+    All other locations contain a number that is computed based on the number of mice
+    locations around it.
+    Args
+        dimensions: n-tuple of ints
+        mouse_locations: list of n-tuples representing positions in the n-dim array
+    Returns
+        n-dim array representing the board
+    """
+    board = make_ndim_array(dimensions)
+    for pos in mouse_locations:
+        set_val_at_board_pos(board, pos, MOUSE)
+
+    for pos in mouse_locations:
+        neighbors = get_neighbors_nd(pos, dimensions)
+        for n_pos in neighbors:
+            val = get_val_at_board_pos(board, n_pos)
+            if val != MOUSE:
+                set_val_at_board_pos(board, n_pos, val + 1)
+    return board
+
+
 def new_game_nd(dimensions, mouse_locations):
     """
     Start a new game.
@@ -415,27 +418,16 @@ def new_game_nd(dimensions, mouse_locations):
         [[False, False], [False, False], [False, False], [False, False]]
         [[False, False], [False, False], [False, False], [False, False]]
     """
-    board = make_board(dimensions)
-    for pos in mouse_locations:
-        set_val_at_board_pos(board, pos, MOUSE)
-
-    for pos in mouse_locations:
-        neighbors = get_neighbors_nd(pos, dimensions)
-        for n_pos in neighbors:
-            val = get_val_at_board_pos(board, n_pos)
-            if val != MOUSE:
-                set_val_at_board_pos(board, n_pos, val + 1)
+    board = make_board(dimensions, mouse_locations)
 
     return {
         "dimensions": dimensions,
         "board": board,
         "state": "ongoing",
-        "visible": make_board(dimensions, False),
-        "mouse locations": mouse_locations,
+        "visible": make_ndim_array(dimensions, False),
+        "mouse locations": set(mouse_locations),
+        "first move": True,
     }
-
-
-import time
 
 
 def reveal_nd(game, pos):
@@ -483,6 +475,24 @@ def reveal_nd(game, pos):
         [[False, True], [False, False], [True, True], [True, True]]
         [[False, False], [False, False], [True, True], [True, True]]
     """
+
+    if game["first move"]:
+        game["first move"] = False
+        val = get_val_at_board_pos(game["board"], pos)
+        if val != 0:
+            relocate = []
+            if val == MOUSE:
+                relocate.append(pos)
+            neighbors = set(get_neighbors_nd(pos, game["dimensions"]))
+            relocate.extend(list(neighbors & game["mouse locations"]))
+            gen_random_pos = random_coordinates(game["dimensions"])
+            while relocate:
+                random = next(gen_random_pos)
+                if random not in game["mouse locations"] | neighbors | {pos}:
+                    m_pos = relocate.pop()
+                    game["mouse locations"].remove(m_pos)
+                    game["mouse locations"].add(random)
+            game["board"] = make_board(game["dimensions"], game["mouse locations"])
 
     if game["state"] != "ongoing":
         return 0
@@ -551,7 +561,7 @@ def render_nd(game, all_visible=False):
     """
     dim = game["dimensions"]
 
-    rendered = make_board(dim, "_")
+    rendered = make_ndim_array(dim, "_")
 
     all_positions = all_coords(dim)
 
@@ -610,11 +620,5 @@ if __name__ == "__main__":
     #    optionflags=_doctest_flags,
     #    verbose=False
     # )
-    dimensions = (10, 15, 2)
-    gen = random_coordinates(dimensions)
-    mouse_locations = [next(gen) for _ in range(10)]
-
-    game = new_game_nd(dimensions, mouse_locations)
-    print(
-        f"Total cells: {len(all_coords(dimensions))}, total mouse locations: {len(mouse_locations)}"
-    )
+    game = new_game_2d(8, 8, [(6, 6), (6, 1)])
+    result = reveal_2d(game, 6, 7)
