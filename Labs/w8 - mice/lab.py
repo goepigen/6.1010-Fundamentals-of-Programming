@@ -89,18 +89,6 @@ def new_game_2d(nrows, ncols, mouse_locations):
         [False, False, False, False]
     """
     return new_game_nd((nrows, ncols), mouse_locations)
-    # dimensions = (nrows, ncols)
-    # board = make_board(dimensions, mouse_locations)
-
-    # return {
-    #     "dimensions": dimensions,
-    #     "board": board,
-    #     "state": "ongoing",
-    #     "visible": [[False] * ncols for _ in range(nrows)],
-    #     "mouse locations": set(mouse_locations),
-    #     "first move": True,
-    #     "bed locations": set(),
-    # }
 
 
 def reveal_2d(game, row, col):
@@ -169,22 +157,6 @@ def reveal_2d(game, row, col):
     """
     return reveal_nd(game, (row, col))
 
-    # revealed = 0
-    # if game["state"] == "ongoing" and not game["visible"][row][col]:
-    #     game["visible"][row][col] = True
-    #     revealed += 1
-    #     if game["board"][row][col] == MOUSE:
-    #         game["state"] = "lost"
-    #     else:
-    #         if game["board"][row][col] == 0:
-    #             neighbors = get_2d_neighbors(row, col, *game["dimensions"])
-    #             for nr, nc in neighbors:
-    #                 revealed += reveal_2d(game, nr, nc)
-    #         if check_victory(game):
-    #             game["state"] = "won"
-
-    # return revealed
-
 
 def render_2d(game, all_visible=False):
     """
@@ -230,19 +202,6 @@ def render_2d(game, all_visible=False):
     ]
 
     return result
-
-    # result = []
-    # for r in range(game["dimensions"][0]):
-    #     result.append([])
-    #     for c in range(game["dimensions"][1]):
-    #         if game["visible"][r][c]:
-    #             if game["board"][r][c] == 0:
-    #                 result[-1].append(" ")
-    #             else:
-    #                 result[-1].append(game["board"][r][c])
-    #         else:
-    #             result[-1].append("_")
-    # return result
 
 
 def toggle_bed_2d(game, row, col):
