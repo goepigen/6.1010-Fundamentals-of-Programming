@@ -88,17 +88,19 @@ def new_game_2d(nrows, ncols, mouse_locations):
         [False, False, False, False]
         [False, False, False, False]
     """
-    dimensions = (nrows, ncols)
-    board = make_board(dimensions, mouse_locations)
+    return new_game_nd((nrows, ncols), mouse_locations)
+    # dimensions = (nrows, ncols)
+    # board = make_board(dimensions, mouse_locations)
 
-    return {
-        "dimensions": dimensions,
-        "board": board,
-        "state": "ongoing",
-        "visible": [[False] * ncols for _ in range(nrows)],
-        "mouse locations": set(mouse_locations),
-        "first move": True,
-    }
+    # return {
+    #     "dimensions": dimensions,
+    #     "board": board,
+    #     "state": "ongoing",
+    #     "visible": [[False] * ncols for _ in range(nrows)],
+    #     "mouse locations": set(mouse_locations),
+    #     "first move": True,
+    #     "bed locations": set(),
+    # }
 
 
 def reveal_2d(game, row, col):
@@ -220,7 +222,7 @@ def render_2d(game, all_visible=False):
             (
                 (" " if game["board"][r][c] == 0 else str(game["board"][r][c]))
                 if game["visible"][r][c]
-                else "_"
+                else ("_" if (r, c) not in game["bed locations"] else "B")
             )
             for c in range(game["dimensions"][1])
         ]
@@ -241,6 +243,18 @@ def render_2d(game, all_visible=False):
     #         else:
     #             result[-1].append("_")
     # return result
+
+
+def toggle_bed_2d(game, row, col):
+    """
+    Place a visual marker representing a bed at position (row, col) on the board.
+
+    Args:
+        game: an instance of the game
+        row: int
+        col: int
+    """
+    return toggle_bed_nd(game, (row, col))
 
 
 # HELPERS N-D
@@ -427,6 +441,7 @@ def new_game_nd(dimensions, mouse_locations):
         "visible": make_ndim_array(dimensions, False),
         "mouse locations": set(mouse_locations),
         "first move": True,
+        "bed locations": set(),
     }
 
 
@@ -476,6 +491,9 @@ def reveal_nd(game, pos):
         [[False, False], [False, False], [True, True], [True, True]]
     """
 
+    if pos in game["bed locations"]:
+        return 0
+
     if game["first move"]:
         game["first move"] = False
         val = get_val_at_board_pos(game["board"], pos)
@@ -504,6 +522,9 @@ def reveal_nd(game, pos):
             return 0
 
         visited.add(pos)
+
+        if pos in game["bed locations"]:
+            return 0
 
         if get_val_at_board_pos(game["visible"], pos):
             return 0
@@ -572,6 +593,9 @@ def render_nd(game, all_visible=False):
         return rendered
 
     for pos in all_positions:
+        if pos in game["bed locations"]:
+            set_val_at_board_pos(rendered, pos, "B")
+            continue
         val = get_val_at_board_pos(game["board"], pos)
         visible = get_val_at_board_pos(game["visible"], pos)
         if visible:
@@ -580,6 +604,25 @@ def render_nd(game, all_visible=False):
             else:
                 set_val_at_board_pos(rendered, pos, str(val))
     return rendered
+
+
+def toggle_bed_nd(game, coords):
+    """
+    Place a visual marker representing a bed at position represented by coords on the board.
+
+    Args:
+        game: an instance of the game
+        coords: n-tuple of coordinates on the board
+    """
+    if get_val_at_board_pos(game["visible"], coords) or game["state"] != "ongoing":
+        return None
+
+    if coords in game["bed locations"]:
+        game["bed locations"].remove(coords)
+        return False
+
+    game["bed locations"].add(coords)
+    return True
 
 
 def random_coordinates(dimensions):
