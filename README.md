@@ -5,14 +5,18 @@ The [course website](https://py.mit.edu/spring25) can be accessed but I am prett
 
 The materials seem to stay pretty much the same (it is possible to find previous versions of the course online).
 
-### Lab 01 - Image Processing 1
+## Lab 00 - w0 - Audio Processing
 
-### Lab 02 - Image Processing 2
+## Lab 01 - w1 - Image Processing 1
+
+## Lab 02 - w2 - Image Processing 2
 Run `python ui.py` to see a quick and dirty UI I made (using PyQt6) that displays an original color image, the image converted to greyscale, the results of blur and sharpen filters (each with a slider for choosing the respective kernel_size used in the filter), and four images related to the seam-carving task (energy, cumulative energy map, original image with seam highlighted, and image without n seams (n chosen with a slider)).
 
-## Lab 03 - Bacon Number
+## Lab 03 - w3 - Bacon Number
 
-## Lab 04 - Snekoban
+## Lab 04 - w4 - Snekoban
 
+## Lab 05 - w6 - Recipes
 
+## Lab 06 - w8 - Mice Sleeper
 
