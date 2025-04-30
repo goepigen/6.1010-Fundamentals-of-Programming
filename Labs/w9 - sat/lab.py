@@ -136,6 +136,57 @@ def satisfying_assignment(formula):
     return None
 
 
+def only_desired_rooms(student_preferences, room_capacities):
+    rooms = room_capacities.keys()
+    students = student_preferences.keys()
+    student_non_preferences = {
+        s: {r for r in rooms if r not in student_preferences[s]} for s in students
+    }
+    return [
+        [(f"{s}_{r}", False)] for s, rs in student_non_preferences.items() for r in rs
+    ]
+
+
+def get_pairs_from_list(l):
+    return [[l[i], l[j]] for i in range(len(l) - 1) for j in range(i + 1, len(l))]
+
+
+def get_triples_from_list(l):
+    return [
+        [l[i], l[j], l[k]]
+        for i in range(len(l) - 2)
+        for j in range(i + 1, len(l) - 1)
+        for k in range(j + 1, len(l))
+    ]
+
+
+def one_session_per_student(student_preferences, room_capacities):
+    rooms = list(room_capacities)
+    students = list(student_preferences)
+    room_pairs = get_pairs_from_list(rooms)
+
+    return [
+        [(f"{s}_{r[0]}", False), (f"{s}_{r[1]}", False)]
+        for s in students
+        for r in room_pairs
+    ] + [[(f"{s}_{r}", True) for r in rooms] for s in students]
+
+
+from itertools import combinations
+
+
+def no_oversubscribed_rooms(student_preferences, room_capacities):
+    students = list(student_preferences)
+    n_students = len(students)
+    rooms = [r for r, cap in room_capacities.items() if cap < n_students]
+
+    return [
+        [(f"{s}_{r}", False) for s in student_combinations]
+        for r in rooms
+        for student_combinations in combinations(students, room_capacities[r] + 1)
+    ]
+
+
 def boolify_scheduling_problem(student_preferences, room_capacities):
     """
     Convert a quiz-room-scheduling problem into a Boolean formula.
@@ -151,18 +202,26 @@ def boolify_scheduling_problem(student_preferences, room_capacities):
 
     We assume no student or room names contain underscores.
     """
-    raise NotImplementedError
+    cnf = [
+        *only_desired_rooms(student_preferences, room_capacities),
+        *one_session_per_student(student_preferences, room_capacities),
+        *no_oversubscribed_rooms(student_preferences, room_capacities),
+    ]
+
+    return cnf
 
 
 if __name__ == "__main__":
     # _doctest_flags = doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
     # doctest.testmod(optionflags=_doctest_flags)
+    student_preferences = {
+        "alex": {"basement", "penthouse"},
+        "blake": {"kitchen"},
+        "chris": {"basement", "kitchen"},
+        "dana": {"kitchen", "penthouse", "basement"},
+    }
 
-    formula = [
-        [("a", True), ("b", True)],
-        [("a", False), ("b", False), ("c", True)],
-        [("b", True), ("c", True)],
-        [("b", True), ("c", False)],
-    ]
+    room_capacities = {"basement": 1, "kitchen": 2, "penthouse": 4}
+    formula = boolify_scheduling_problem(student_preferences, room_capacities)
 
     result = satisfying_assignment(formula)

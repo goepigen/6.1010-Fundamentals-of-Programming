@@ -494,6 +494,100 @@ def test_remove_length_one_clauses():
 
     updated_formula = lab.remove_length_one_clauses(formula)
 
-    expected = [[("e", True), ("f", False), ("g", True)]]
+    expected_updated_formula = [[("e", True), ("f", False), ("g", True)]]
+    expected_forced_assignments = {"a": True, "b": False}
+    expected = (expected_updated_formula, expected_forced_assignments)
+
+    print(updated_formula)
 
     assert updated_formula == expected, "Expected formula to be always False."
+
+
+def test_only_desired_rooms():
+    student_preferences = {
+        "alex": {"basement", "penthouse"},
+        "blake": {"kitchen"},
+        "chris": {"basement", "kitchen"},
+        "dana": {"kitchen", "penthouse", "basement"},
+    }
+
+    room_capacities = {"basement": 1, "kitchen": 2, "penthouse": 4}
+
+    cnf = lab.only_desired_rooms(student_preferences, room_capacities)
+
+    expected = [
+        [("alex_kitchen", False)],
+        [("blake_basement", False)],
+        [("blake_penthouse", False)],
+        [("chris_penthouse", False)],
+    ]
+
+    assert len(cnf) == len(expected)
+    assert set(map(frozenset, cnf)) == set(map(frozenset, expected))
+
+
+def test_one_session_per_student():
+    student_preferences = {
+        "alex": {"basement", "penthouse"},
+        "blake": {"kitchen"},
+        "chris": {"basement", "kitchen"},
+        "dana": {"kitchen", "penthouse", "basement"},
+    }
+
+    room_capacities = {"basement": 1, "kitchen": 2, "penthouse": 4}
+
+    cnf = lab.one_session_per_student(student_preferences, room_capacities)
+
+    expected = [
+        [("alex_basement", False), ("alex_penthouse", False)],
+        [("alex_basement", False), ("alex_kitchen", False)],
+        [("alex_penthouse", False), ("alex_kitchen", False)],
+        [("blake_basement", False), ("blake_penthouse", False)],
+        [("blake_basement", False), ("blake_kitchen", False)],
+        [("blake_penthouse", False), ("blake_kitchen", False)],
+        [("chris_basement", False), ("chris_penthouse", False)],
+        [("chris_basement", False), ("chris_kitchen", False)],
+        [("chris_penthouse", False), ("chris_kitchen", False)],
+        [("dana_basement", False), ("dana_penthouse", False)],
+        [("dana_basement", False), ("dana_kitchen", False)],
+        [("dana_penthouse", False), ("dana_kitchen", False)],
+        [("alex_basement", True), ("alex_penthouse", True), ("alex_kitchen", True)],
+        [("blake_basement", True), ("blake_penthouse", True), ("blake_kitchen", True)],
+        [("chris_basement", True), ("chris_penthouse", True), ("chris_kitchen", True)],
+        [("dana_basement", True), ("dana_penthouse", True), ("dana_kitchen", True)],
+    ]
+
+    assert len(cnf) == len(expected)
+    assert set(map(frozenset, cnf)) == set(map(frozenset, expected))
+
+
+def test_no_oversubscribed_rooms():
+    student_preferences = {
+        "alex": {"basement", "penthouse"},
+        "blake": {"kitchen"},
+        "chris": {"basement", "kitchen"},
+        "dana": {"kitchen", "penthouse", "basement"},
+    }
+
+    room_capacities = {"basement": 1, "kitchen": 2, "penthouse": 4}
+
+    cnf = lab.no_oversubscribed_rooms(student_preferences, room_capacities)
+
+    expected = [
+        [("alex_basement", False), ("blake_basement", False)],
+        [("alex_basement", False), ("chris_basement", False)],
+        [("alex_basement", False), ("dana_basement", False)],
+        [("blake_basement", False), ("chris_basement", False)],
+        [("blake_basement", False), ("dana_basement", False)],
+        [("chris_basement", False), ("dana_basement", False)],
+        [("alex_kitchen", False), ("blake_kitchen", False), ("chris_kitchen", False)],
+        [("alex_kitchen", False), ("blake_kitchen", False), ("dana_kitchen", False)],
+        [("alex_kitchen", False), ("chris_kitchen", False), ("dana_kitchen", False)],
+        [("blake_kitchen", False), ("chris_kitchen", False), ("dana_kitchen", False)],
+    ]
+
+    for el in cnf:
+        print(el)
+
+    assert len(cnf) == len(expected)
+    assert set(map(frozenset, cnf)) == set(map(frozenset, expected))
