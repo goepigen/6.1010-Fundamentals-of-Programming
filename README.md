@@ -20,3 +20,5 @@ Run `python ui.py` to see a quick and dirty UI I made (using PyQt6) that display
 
 ### w8 - mice sleeper
 
+### w9 - sat solver
+
