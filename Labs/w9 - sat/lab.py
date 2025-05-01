@@ -147,32 +147,28 @@ def only_desired_rooms(student_preferences, room_capacities):
     ]
 
 
-def get_pairs_from_list(l):
-    return [[l[i], l[j]] for i in range(len(l) - 1) for j in range(i + 1, len(l))]
-
-
-def get_triples_from_list(l):
-    return [
-        [l[i], l[j], l[k]]
-        for i in range(len(l) - 2)
-        for j in range(i + 1, len(l) - 1)
-        for k in range(j + 1, len(l))
-    ]
+def combinations(lst, k):
+    if k == 0:
+        yield []
+    elif len(lst) < k:
+        return
+    else:
+        first, rest = lst[0], lst[1:]
+        for c in combinations(rest, k - 1):
+            yield [first] + c
+        yield from combinations(rest, k)
 
 
 def one_session_per_student(student_preferences, room_capacities):
     rooms = list(room_capacities)
     students = list(student_preferences)
-    room_pairs = get_pairs_from_list(rooms)
+    room_pairs = list(combinations(rooms, 2))
 
     return [
         [(f"{s}_{r[0]}", False), (f"{s}_{r[1]}", False)]
         for s in students
         for r in room_pairs
     ] + [[(f"{s}_{r}", True) for r in rooms] for s in students]
-
-
-from itertools import combinations
 
 
 def no_oversubscribed_rooms(student_preferences, room_capacities):
@@ -222,6 +218,12 @@ if __name__ == "__main__":
     }
 
     room_capacities = {"basement": 1, "kitchen": 2, "penthouse": 4}
-    formula = boolify_scheduling_problem(student_preferences, room_capacities)
+    rooms = list(room_capacities)
+    rooms1 = get_pairs_from_list(rooms)
+    rooms2 = combinations(rooms, 2)
 
-    result = satisfying_assignment(formula)
+    one_session_per_student(student_preferences, room_capacities)
+
+    # formula = boolify_scheduling_problem(student_preferences, room_capacities)
+
+    # result = satisfying_assignment(formula)
