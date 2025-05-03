@@ -155,6 +155,7 @@ def autocorrect(tree, prefix, max_count=None):
 
     if max_count is None:
         edits = [e for e in single_edits(tree, prefix) if e not in seen]
+        edits.sort(key=lambda word: tree[word], reverse=True)
         return completions + edits
 
     missing = max_count - len(completions)
@@ -163,14 +164,9 @@ def autocorrect(tree, prefix, max_count=None):
 
     suggestions = completions.copy()
 
-    for edit in single_edits(tree, prefix):
-        if edit not in seen:
-            suggestions.append(edit)
-            seen.add(edit)
-            if len(suggestions) == max_count:
-                break
-
-    return suggestions
+    edits = [edit for edit in single_edits(tree, prefix) if edit not in seen]
+    edits.sort(key=lambda edit: tree[edit], reverse=True)
+    return suggestions + edits[:missing]
 
 
 def word_filter(tree, pattern):
