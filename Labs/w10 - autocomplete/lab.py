@@ -5,7 +5,8 @@ Autocomplete
 
 # NO ADDITIONAL IMPORTS!
 
-# import string # optional import
+import string  # optional import
+
 # import pprint # optional import
 # import typing # optional import
 import doctest
@@ -14,7 +15,8 @@ from text_tokenize import tokenize_sentences
 
 class PrefixTree:
     def __init__(self):
-        raise NotImplementedError
+        self.value = None
+        self.children = {}
 
     def __setitem__(self, key, value):
         """
@@ -22,7 +24,34 @@ class PrefixTree:
         or reassign the associated value if it is already present.
         Raise a TypeError if the given key is not a string.
         """
-        raise NotImplementedError
+        if not isinstance(key, str):
+            raise TypeError
+
+        node = self
+
+        for letter in key:
+            next_node = node.children.get(letter, None)
+            if next_node:
+                node = next_node
+            else:
+                new_node = PrefixTree()
+                node.children[letter] = new_node
+                node = new_node
+        node.value = value
+
+    def _get_node(self, key):
+        if not isinstance(key, str):
+            raise TypeError
+
+        node = self
+
+        for letter in key:
+            next_node = node.children.get(letter, None)
+            if next_node:
+                node = next_node
+            else:
+                raise KeyError(f"Key {key!r} not found in PrefixTree")
+        return node
 
     def __getitem__(self, key):
         """
@@ -30,21 +59,34 @@ class PrefixTree:
         Raise a KeyError if the given key is not in the prefix tree.
         Raise a TypeError if the given key is not a string.
         """
-        raise NotImplementedError
+        node = self._get_node(key)
+        if node.value is None:
+            raise KeyError(f"Key {key} has no value in PrefixTree")
+        return node.value
 
     def __contains__(self, key):
         """
         Is key a key in the prefix tree?  Return True or False.
         Raise a TypeError if the given key is not a string.
         """
-        raise NotImplementedError
+        try:
+            node = self._get_node(key)
+            return node.value is not None
+        except KeyError:
+            return False
 
     def __iter__(self):
         """
         Generator of (key, value) pairs for all keys/values in this prefix tree
         and its children.  Must be a generator!
         """
-        raise NotImplementedError
+        if self.value is not None:
+            yield ("", self.value)
+
+        for letter, child_node in self.children.items():
+            for key, value in child_node:
+                yield (letter + key, value)
+            # yield from ((letter +  key, value) for key, value in child_node)
 
     def __delitem__(self, key):
         """
@@ -52,7 +94,12 @@ class PrefixTree:
         Raise a KeyError if the given key is not in the prefix tree.
         Raise a TypeError if the given key is not a string.
         """
-        raise NotImplementedError
+        node = self._get_node(key)
+
+        if node.value is None:
+            raise KeyError(f"Key {key} has no value in PrefixTree")
+
+        node.value = None
 
 
 def word_frequencies(text):
@@ -61,7 +108,15 @@ def word_frequencies(text):
     are the words in the text, and whose values are the number of times the
     associated word appears in the text.
     """
-    raise NotImplementedError
+    words = {}
+    sentences = tokenize_sentences(text)
+    for s in sentences:
+        for w in s.split():
+            words[w] = words.get(w, 0) + 1
+    tree = PrefixTree()
+    for w, freq in words.items():
+        tree[w] = freq
+    return tree
 
 
 def autocomplete(tree, prefix, max_count=None):
@@ -72,7 +127,19 @@ def autocomplete(tree, prefix, max_count=None):
 
     Raise a TypeError if the given prefix is not a string.
     """
-    raise NotImplementedError
+    try:
+        node = tree._get_node(prefix)
+    except KeyError:
+        return []
+
+    completions = [(prefix + suffix, freq) for suffix, freq in node]
+
+    completions.sort(key=lambda item_freq: item_freq[1], reverse=True)
+
+    if max_count is not None:
+        completions = completions[:max_count]
+
+    return [word for word, _ in completions]
 
 
 def autocorrect(tree, prefix, max_count=None):
@@ -83,7 +150,27 @@ def autocorrect(tree, prefix, max_count=None):
     fewer than max_count elements, include the most-frequently-occurring valid
     edits of the given word as well, up to max_count total elements.
     """
-    raise NotImplementedError
+    completions = autocomplete(tree, prefix, max_count)
+    seen = set(completions)
+
+    if max_count is None:
+        edits = [e for e in single_edits(tree, prefix) if e not in seen]
+        return completions + edits
+
+    missing = max_count - len(completions)
+    if missing <= 0:
+        return completions
+
+    suggestions = completions.copy()
+
+    for edit in single_edits(tree, prefix):
+        if edit not in seen:
+            suggestions.append(edit)
+            seen.add(edit)
+            if len(suggestions) == max_count:
+                break
+
+    return suggestions
 
 
 def word_filter(tree, pattern):
@@ -97,6 +184,56 @@ def word_filter(tree, pattern):
     raise NotImplementedError
 
 
+# HELPERS
+
+
+def single_edits(tree, prefix):
+    seen = set()
+
+    yield from single_insertion_edits(tree, prefix, seen)
+    yield from single_deletion_edits(tree, prefix, seen)
+    yield from single_replacement_edits(tree, prefix, seen)
+    yield from single_transpose_edits(tree, prefix, seen)
+
+
+def single_insertion_edits(tree, prefix, seen):
+    letters = string.ascii_lowercase
+
+    for pos in range(len(prefix) + 1):
+        for letter in letters:
+            edit = prefix[:pos] + letter + prefix[pos:]
+            yield from yield_if_valid(tree, edit, seen)
+
+
+def single_replacement_edits(tree, prefix, seen):
+    letters = string.ascii_lowercase
+
+    for pos in range(len(prefix)):
+        for letter in letters:
+            edit = prefix[:pos] + letter + prefix[pos + 1 :]
+            yield from yield_if_valid(tree, edit, seen)
+
+
+def single_deletion_edits(tree, prefix, seen):
+    for pos in range(len(prefix)):
+        edit = prefix[:pos] + prefix[pos + 1 :]
+        yield from yield_if_valid(tree, edit, seen)
+
+
+def single_transpose_edits(tree, prefix, seen):
+    for pos in range(len(prefix) - 1):
+        edit = prefix[:pos] + prefix[pos + 1] + prefix[pos] + prefix[pos + 2 :]
+        yield from yield_if_valid(tree, edit, seen)
+
+
+def yield_if_valid(tree, edit, seen):
+    if edit in seen:
+        return
+    if edit in tree:
+        seen.add(edit)
+        yield edit
+
+
 if __name__ == "__main__":
     _doctest_flags = doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
     doctest.testmod(optionflags=_doctest_flags)  # runs ALL doctests
@@ -106,3 +243,6 @@ if __name__ == "__main__":
     #    optionflags=_doctest_flags,
     #    verbose=True
     # )
+
+    t = word_frequencies("cats cattle hat car act at chat crate act car act")
+    result = autocorrect(t, "cat", 4)
