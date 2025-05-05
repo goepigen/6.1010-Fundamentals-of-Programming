@@ -84,8 +84,8 @@ class PrefixTree:
             yield ("", self.value)
 
         for letter, child_node in self.children.items():
-            for key, value in child_node:
-                yield (letter + key, value)
+            for suffix, value in child_node:
+                yield (letter + suffix, value)
             # yield from ((letter +  key, value) for key, value in child_node)
 
     def __delitem__(self, key):
@@ -177,7 +177,42 @@ def word_filter(tree, pattern):
          ? matches any single character,
          otherwise char in pattern char must equal char in word.
     """
-    raise NotImplementedError
+    if pattern == "":
+        return {("", tree.value)} if tree.value is not None else set()
+
+    first = pattern[0]
+    rest = pattern[1:]
+
+    if first == "?":
+        filtered = set()
+        for letter, node in tree.children.items():
+            child_filtered = word_filter(node, rest)
+            filtered.update(
+                {
+                    (letter + child_pattern, freq)
+                    for child_pattern, freq in child_filtered
+                }
+            )
+        return filtered
+
+    if first == "*":
+        filtered = set()
+
+        filtered.update(word_filter(tree, rest))
+
+        for letter, node in tree.children.items():
+            child_filtered = word_filter(node, pattern)
+            filtered.update(
+                {(letter + suffix, freq) for suffix, freq in child_filtered}
+            )
+        return filtered
+
+    if first in tree.children:
+        next_node = tree.children[first]
+        filtered = word_filter(next_node, rest)
+        return {(first + child_pattern, freq) for child_pattern, freq in filtered}
+
+    return set()
 
 
 # HELPERS
@@ -240,5 +275,32 @@ if __name__ == "__main__":
     #    verbose=True
     # )
 
-    t = word_frequencies("cats cattle hat car act at chat crate act car act")
-    result = autocorrect(t, "cat", 4)
+    # end of assignment questions
+
+    def read_file(name):
+        with open(f"books/{name}.txt", encoding="utf-8") as f:
+            return f.read()
+
+    metamorphosis_text = read_file("metamorphosis")
+    tale_text = read_file("a tale of two cities")
+    alice_text = read_file("alice in wonderland")
+    pride_text = read_file("pride and prejudice")
+    dracula_text = read_file("dracula")
+
+    metamorphosis_tree = word_frequencies(metamorphosis_text)
+    tale_tree = word_frequencies(tale_text)
+    alice_tree = word_frequencies(alice_text)
+    pride_tree = word_frequencies(pride_text)
+    dracula_tree = word_frequencies(dracula_text)
+
+    result1 = autocomplete(metamorphosis_tree, "gre", 6)
+    result2 = word_filter(metamorphosis_tree, "c*h")
+    result3 = word_filter(tale_tree, "r?c*t")
+    result4 = autocorrect(alice_tree, "hear", 12)
+    result5 = autocorrect(pride_tree, "hear")
+    result6 = len([el for el in dracula_tree])
+    # result 6 = len(word_filter(dracula_tree, "*"))
+
+    # This is tricky and not immediately useful to me so I did not spend time on it
+    result7 = len(dracula_text.split())
+    # result7 = len([w.strip(string.punctuation) for w in text.split() if w.strip(string.punctuation)])
