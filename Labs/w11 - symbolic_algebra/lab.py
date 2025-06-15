@@ -11,12 +11,24 @@ from typing import Union, assert_never
 # import string # optional import
 # import abc # optional import
 
-Operand = Union["Expr", int, float, str]
-
-
 # NO ADDITIONAL IMPORTS ALLOWED!
 # You are welcome to modify the classes below, as well as to implement new
 # classes and helper functions as necessary.
+
+Operand = Union["Expr", int, float, str]
+
+EvalMapping = dict[str, int | float]
+
+
+class SymbolicEvaluationError(Exception):
+    """
+    an expression indicating that something has gone wrong when
+    evaluating a symbolic algebra expression.
+    """
+
+    pass
+
+
 class Expr:
     """
     base class for symbolic expressions.
@@ -24,6 +36,9 @@ class Expr:
     """
 
     precedence: int
+
+    def evaluate(self, mapping: EvalMapping) -> int | float:
+        raise NotImplementedError
 
     def __add__(self, other: Operand) -> "Add":
         return Add(self, other)
@@ -73,6 +88,9 @@ class Expr:
 
         return Div(other, self)
 
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Expr) and str(self) == str(other)
+
 
 class Var(Expr):
     """
@@ -92,7 +110,15 @@ class Var(Expr):
         return self.name
 
     def __repr__(self) -> str:
-        return f"Var('{self.name}')"
+        return f"{self.__class__.__name__}('{self.name}')"
+
+    def evaluate(self, mapping: EvalMapping) -> int | float:
+        try:
+            return mapping[self.name]
+        except KeyError:
+            raise SymbolicEvaluationError(
+                f"Variable '{self.name}' not found in mapping"
+            )
 
 
 class Num(Expr):
@@ -102,18 +128,21 @@ class Num(Expr):
 
     precedence = 0
 
-    def __init__(self, val: int | float):
+    def __init__(self, n: int | float):
         """
         Initializer.  Store an instance variable called `n`, containing the
         value passed in to the initializer.
         """
-        self.val = val
+        self.n = n
 
     def __str__(self) -> str:
-        return str(self.val)
+        return str(self.n)
 
     def __repr__(self) -> str:
-        return f"Num({self.val})"
+        return f"{self.__class__.__name__}({self.n})"
+
+    def evaluate(self, mapping: EvalMapping) -> int | float:
+        return self.n
 
 
 class BinOp(Expr):
@@ -148,11 +177,7 @@ class BinOp(Expr):
         if right.precedence > 0:
             if self.higher_precedence_than(right):
                 right = self.parenthesize(right)
-            elif (
-                self.operator == "-"
-                or self.operator == "/"
-                and self.same_precedence_than(right)
-            ):
+            elif self.operator in ["-", "/"] and self.same_precedence_than(right):
                 right = self.parenthesize(right)
 
         return f"{left} {self.operator} {right}"
@@ -168,25 +193,48 @@ class BinOp(Expr):
         else:
             assert_never(val)
 
+    def evaluate(self, mapping: EvalMapping) -> int | float:
+        return self._apply_operator(
+            self.left.evaluate(mapping), self.right.evaluate(mapping)
+        )
+
+    def _apply_operator(self, left: int | float, right: int | float) -> int | float:
+        raise NotImplementedError
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({repr(self.left)}, {repr(self.right)})"
+
 
 class Add(BinOp):
     operator = "+"
     precedence = 1
+
+    def _apply_operator(self, left: int | float, right: int | float) -> int | float:
+        return left + right
 
 
 class Sub(BinOp):
     operator = "-"
     precedence = 1
 
+    def _apply_operator(self, left: int | float, right: int | float) -> int | float:
+        return left - right
+
 
 class Mul(BinOp):
     operator = "*"
     precedence = 2
 
+    def _apply_operator(self, left: int | float, right: int | float) -> int | float:
+        return left * right
+
 
 class Div(BinOp):
     operator = "/"
     precedence = 2
+
+    def _apply_operator(self, left: int | float, right: int | float) -> int | float:
+        return left / right
 
 
 if __name__ == "__main__":
