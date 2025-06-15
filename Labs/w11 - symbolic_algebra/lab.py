@@ -29,18 +29,6 @@ class SymbolicEvaluationError(Exception):
     pass
 
 
-# derivatives
-# def deriv(self, var: str) -> str:
-
-
-# base cases
-# if an Expr is a Num, then the derivative is zero
-# if an Expr is a Var, if the value of Var is var, then the derivative is one,
-# otherwise zero.
-# non-base cases
-# return _apply_operator(self.deriv(self.left), self.deriv(self.right))
-
-
 class Expr:
     """
     base class for symbolic expressions.
@@ -53,6 +41,9 @@ class Expr:
         raise NotImplementedError
 
     def deriv(self, var: str) -> "Expr":
+        raise NotImplementedError
+
+    def simplify(self) -> "Expr":
         raise NotImplementedError
 
     def __add__(self, other: Operand) -> "Add":
@@ -104,7 +95,7 @@ class Expr:
         return Div(other, self)
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Expr) and str(self) == str(other)
+        return isinstance(other, self.__class__) and str(self) == str(other)
 
 
 class Var(Expr):
@@ -140,6 +131,9 @@ class Var(Expr):
             return Num(1)
         return Num(0)
 
+    def simplify(self) -> "Expr":
+        return self
+
 
 class Num(Expr):
     """
@@ -161,11 +155,17 @@ class Num(Expr):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.n})"
 
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Num) and self.n == other.n
+
     def evaluate(self, mapping: EvalMapping) -> int | float:
         return self.n
 
     def deriv(self, var: str) -> "Num":
         return Num(0)
+
+    def simplify(self) -> "Expr":
+        return self
 
 
 class BinOp(Expr):
@@ -238,6 +238,19 @@ class Add(BinOp):
     def deriv(self, var: str) -> "Add":
         return Add(self.left.deriv(var), self.right.deriv(var))
 
+    def simplify(self) -> "Expr":
+        left = self.left.simplify()
+        right = self.right.simplify()
+
+        if left == Num(0):
+            return right
+        if right == Num(0):
+            return left
+        if isinstance(left, Num) and isinstance(right, Num):
+            return Num(self._apply_operator(left.n, right.n))
+
+        return Add(left, right)
+
 
 class Sub(BinOp):
     operator = "-"
@@ -248,6 +261,17 @@ class Sub(BinOp):
 
     def deriv(self, var: str) -> "Sub":
         return Sub(self.left.deriv(var), self.right.deriv(var))
+
+    def simplify(self) -> "Expr":
+        left = self.left.simplify()
+        right = self.right.simplify()
+
+        if right == Num(0):
+            return left
+        if isinstance(left, Num) and isinstance(right, Num):
+            return Num(self._apply_operator(left.n, right.n))
+
+        return Sub(left, right)
 
 
 class Mul(BinOp):
@@ -261,6 +285,21 @@ class Mul(BinOp):
         return Add(
             Mul(self.left, self.right.deriv(var)), Mul(self.right, self.left.deriv(var))
         )
+
+    def simplify(self) -> "Expr":
+        left = self.left.simplify()
+        right = self.right.simplify()
+
+        if left == Num(0) or right == Num(0):
+            return Num(0)
+        if left == Num(1):
+            return right
+        if right == Num(1):
+            return left
+        if isinstance(left, Num) and isinstance(right, Num):
+            return Num(self._apply_operator(left.n, right.n))
+
+        return Mul(left, right)
 
 
 class Div(BinOp):
@@ -279,19 +318,24 @@ class Div(BinOp):
             Mul(self.right, self.right),
         )
 
+    def simplify(self) -> "Expr":
+        left = self.left.simplify()
+        right = self.right.simplify()
+
+        if left == Num(0):
+            return Num(0)
+        if right == Num(1):
+            return left
+        if isinstance(left, Num) and isinstance(right, Num):
+            return Num(self._apply_operator(left.n, right.n))
+
+        return Div(left, right)
+
 
 if __name__ == "__main__":
     x = Var("x")
     y = Var("y")
 
-    e1 = x + y + 5 * x + 7
-    e2 = x - y - 5 * x + 7
-    e3 = x * y
-    e4 = x / y
+    e = Mul(Div(Num(2), Num(2)), Var("x"))
 
-    print(e1.deriv("x"))
-    print(e2.deriv("x"))
-    print(e3.deriv("x"))
-    print(e4.deriv("x"))
-
-    print(repr(e4.deriv("x")))
+    print(e.simplify())
