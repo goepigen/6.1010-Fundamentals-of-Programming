@@ -29,6 +29,18 @@ class SymbolicEvaluationError(Exception):
     pass
 
 
+# derivatives
+# def deriv(self, var: str) -> str:
+
+
+# base cases
+# if an Expr is a Num, then the derivative is zero
+# if an Expr is a Var, if the value of Var is var, then the derivative is one,
+# otherwise zero.
+# non-base cases
+# return _apply_operator(self.deriv(self.left), self.deriv(self.right))
+
+
 class Expr:
     """
     base class for symbolic expressions.
@@ -38,6 +50,9 @@ class Expr:
     precedence: int
 
     def evaluate(self, mapping: EvalMapping) -> int | float:
+        raise NotImplementedError
+
+    def deriv(self, var: str) -> "Expr":
         raise NotImplementedError
 
     def __add__(self, other: Operand) -> "Add":
@@ -120,6 +135,11 @@ class Var(Expr):
                 f"Variable '{self.name}' not found in mapping"
             )
 
+    def deriv(self, var: str) -> "Num":
+        if self.name == var:
+            return Num(1)
+        return Num(0)
+
 
 class Num(Expr):
     """
@@ -143,6 +163,9 @@ class Num(Expr):
 
     def evaluate(self, mapping: EvalMapping) -> int | float:
         return self.n
+
+    def deriv(self, var: str) -> "Num":
+        return Num(0)
 
 
 class BinOp(Expr):
@@ -212,6 +235,9 @@ class Add(BinOp):
     def _apply_operator(self, left: int | float, right: int | float) -> int | float:
         return left + right
 
+    def deriv(self, var: str) -> "Add":
+        return Add(self.left.deriv(var), self.right.deriv(var))
+
 
 class Sub(BinOp):
     operator = "-"
@@ -219,6 +245,9 @@ class Sub(BinOp):
 
     def _apply_operator(self, left: int | float, right: int | float) -> int | float:
         return left - right
+
+    def deriv(self, var: str) -> "Sub":
+        return Sub(self.left.deriv(var), self.right.deriv(var))
 
 
 class Mul(BinOp):
@@ -228,6 +257,11 @@ class Mul(BinOp):
     def _apply_operator(self, left: int | float, right: int | float) -> int | float:
         return left * right
 
+    def deriv(self, var: str) -> "Add":
+        return Add(
+            Mul(self.left, self.right.deriv(var)), Mul(self.right, self.left.deriv(var))
+        )
+
 
 class Div(BinOp):
     operator = "/"
@@ -236,6 +270,28 @@ class Div(BinOp):
     def _apply_operator(self, left: int | float, right: int | float) -> int | float:
         return left / right
 
+    def deriv(self, var: str) -> "Div":
+        return Div(
+            Sub(
+                Mul(self.right, self.left.deriv(var)),
+                Mul(self.left, self.right.deriv(var)),
+            ),
+            Mul(self.right, self.right),
+        )
+
 
 if __name__ == "__main__":
-    pass
+    x = Var("x")
+    y = Var("y")
+
+    e1 = x + y + 5 * x + 7
+    e2 = x - y - 5 * x + 7
+    e3 = x * y
+    e4 = x / y
+
+    print(e1.deriv("x"))
+    print(e2.deriv("x"))
+    print(e3.deriv("x"))
+    print(e4.deriv("x"))
+
+    print(repr(e4.deriv("x")))
