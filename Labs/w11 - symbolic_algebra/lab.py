@@ -11,6 +11,8 @@ from typing import Union, assert_never
 # import string # optional import
 # import abc # optional import
 
+Operand = Union["Expr", int, float, str]
+
 
 # NO ADDITIONAL IMPORTS ALLOWED!
 # You are welcome to modify the classes below, as well as to implement new
@@ -22,7 +24,54 @@ class Expr:
     """
 
     precedence: int
-    pass
+
+    def __add__(self, other: Operand) -> "Add":
+        return Add(self, other)
+
+    def __radd__(self, other: Operand) -> "Add":
+        """
+        called in expressions such as 2 + Var('x'), in which the first object's
+        __add__ does not know how to add an arbitrary object so the second object's
+        __radd__ method is called.
+        """
+
+        return Add(other, self)
+
+    def __sub__(self, other: Operand) -> "Sub":
+        return Sub(self, other)
+
+    def __rsub__(self, other: Operand) -> "Sub":
+        """
+        called in expressions such as 2 - Var('x'), in which the first object's
+        __sub__ does not know how to subtract an arbitrary object so the second object's
+        __rsub__ method is called.
+        """
+
+        return Sub(other, self)
+
+    def __mul__(self, other: Operand) -> "Mul":
+        return Mul(self, other)
+
+    def __rmul__(self, other: Operand) -> "Mul":
+        """
+        called in expressions such as 2 * Var('x'), in which the first object's
+        __mul__ does not know how to multiply by an arbitrary object so the second object's
+        __rmul__ method is called.
+        """
+
+        return Mul(other, self)
+
+    def __truediv__(self, other: Operand) -> "Div":
+        return Div(self, other)
+
+    def __rtruediv__(self, other: Operand) -> "Div":
+        """
+        called in expressions such as 2 / Var('x'), in which the first object's
+        __div__ does not know how to divide by an arbitrary object so the second object's
+        __rdiv__ method is called.
+        """
+
+        return Div(other, self)
 
 
 class Var(Expr):
@@ -65,9 +114,6 @@ class Num(Expr):
 
     def __repr__(self) -> str:
         return f"Num({self.val})"
-
-
-Operand = Union["Expr", int, float, str]
 
 
 class BinOp(Expr):
