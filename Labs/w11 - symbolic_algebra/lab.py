@@ -37,6 +37,125 @@ class Expr:
 
     precedence: int
 
+    @staticmethod
+    def make_expression(sym: str) -> "Expr":
+        tokens = Expr.tokenize(sym)
+
+        return Expr.parse(tokens)
+
+    @staticmethod
+    def tokenize(s: str) -> list[str]:
+        # traverse sym_str one char at a time
+        # if blank space, do nothing
+        # if a number, then keep going till the end of the number and save as one token
+        # if parentheses or operators, add single token.
+
+        tokens: list[str] = []
+        i = 0
+
+        while i < len(s):
+            c = s[i]
+            if c.isspace():
+                i += 1
+                continue
+            if c in ["(", ")"] or c in ["+", "*", "/"]:
+                tokens.append(c)
+                i += 1
+                continue
+            if c == "-":
+                if s[i + 1].isdigit() or s[i + 1] == ".":
+                    i += 1
+                    num: list[str] = ["-"]
+                    while i < len(s) and (s[i].isdigit() or s[i] == "."):
+                        num.append(s[i])
+                        i += 1
+
+                    tokens.append("".join(num))
+                    continue
+                else:
+                    tokens.append(c)
+                    i += 1
+                    continue
+            if c.isdigit() or c == ".":
+                num: list[str] = []
+                while i < len(s) and (s[i].isdigit() or s[i] == "."):
+                    num.append(s[i])
+                    i += 1
+                tokens.append("".join(num))
+                continue
+            if c.isalpha():
+                tokens.append(c)
+                i += 1
+                continue
+            raise ValueError(f"Unexpected character in input: {c}")
+
+        return tokens
+
+    # @staticmethod
+    # def tokenize(sym_str: str) -> list[str]:
+    #     tokens: list[str] = []
+    #     i = 0
+    #     while i < len(sym_str):
+    #         c = sym_str[i]
+    #         if c.isspace():
+    #             i += 1
+    #         elif c in "()+*/":
+    #             tokens.append(c)
+    #             i += 1
+    #         elif (
+    #             c == "-"
+    #             and (i + 1 < len(sym_str))
+    #             and (sym_str[i + 1].isdigit() or sym_str[i + 1] == ".")
+    #         ):
+    #             # Start of a negative number
+    #             num = c
+    #             i += 1
+    #             while i < len(sym_str) and (sym_str[i].isdigit() or sym_str[i] == "."):
+    #                 num += sym_str[i]
+    #                 i += 1
+    #             tokens.append(num)
+    #         elif c.isdigit() or c == ".":
+    #             # Start of a non-negative number
+    #             num = c
+    #             i += 1
+    #             while i < len(sym_str) and (sym_str[i].isdigit() or sym_str[i] == "."):
+    #                 num += sym_str[i]
+    #                 i += 1
+    #             tokens.append(num)
+    #         elif c.isalpha():
+    #             tokens.append(c)
+    #             i += 1
+    #         else:
+    #             raise ValueError(f"Unexpected character in input: {c}")
+    #     return tokens
+
+    @staticmethod
+    def parse(tokens: list[str]) -> "Expr":
+
+        def parse_expression(index: int) -> tuple["Expr", int]:
+            token = tokens[index]
+
+            operators = {"+": Add, "-": Sub, "*": Mul, "/": Div}
+
+            if token == "(":
+                e1, ni = parse_expression(index + 1)
+                while tokens[ni] != ")":
+                    op = tokens[ni]
+                    e2, ni = parse_expression(ni + 1)
+                    current = operators[op](e1, e2)
+                    e1 = current
+                return (current, ni + 1)
+
+            try:
+                number_token = float(token)
+                return (Num(number_token), index + 1)
+            except ValueError:
+                return (Var(token), index + 1)
+
+        parsed_expression, next_index = parse_expression(0)
+
+        return parsed_expression
+
     def evaluate(self, mapping: EvalMapping) -> int | float:
         raise NotImplementedError
 
@@ -332,10 +451,18 @@ class Div(BinOp):
         return Div(left, right)
 
 
+def make_expression(sym_str):
+    tokens = Expr.tokenize(sym_str)
+    parsed = Expr.parse(tokens)
+    return parsed
+
+
 if __name__ == "__main__":
     x = Var("x")
     y = Var("y")
 
-    e = Mul(Div(Num(2), Num(2)), Var("x"))
+    tokens = Expr.tokenize("20")
+    # parsed = Expr.parse(tokens)
 
-    print(e.simplify())
+    print(tokens)
+    # print(repr(parsed))
