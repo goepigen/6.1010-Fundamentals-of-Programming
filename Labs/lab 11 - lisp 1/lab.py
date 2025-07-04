@@ -96,9 +96,13 @@ def traverse_number(s: str, i: int, negative: bool = False) -> tuple[int, str]:
 
 def traverse_variable(s: str, i: int) -> tuple[int, str]:
     var: list[str] = []
-    while i < len(s) and s[i].isalpha():
-        var.append(s[i])
-        i += 1
+    while i < len(s):
+        c = s[i]
+        if not c.isspace() and not c == ")" and not c == "(" and not c == ";":
+            var.append(c)
+            i += 1
+        else:
+            break
     return i, "".join(var)
 
 
@@ -151,13 +155,6 @@ def tokenize(s: str) -> list[str]:
             tokens.append(num)
             continue
 
-        # case 5: if we encounter an alphabetic character, we add it to tokens and move on (the assumption
-        # here is that variables are one character long)
-
-        if c.isalpha():
-            i, var = traverse_variable(s, i)
-            tokens.append(var)
-            continue
         # case 6: if we encounter ";" then everything that comes after on the same line is ignored
         # IMPROVE THIS CASE
         if c == ";":
@@ -167,10 +164,16 @@ def tokenize(s: str) -> list[str]:
             else:
                 i += nl_pos + 1
                 continue
+        # case 5: if we encounter an alphabetic character, we add it to tokens and move on (the assumption
+        # here is that variables are one character long)
+        else:
+            i, var = traverse_variable(s, i)
+            tokens.append(var)
+            continue
 
         # if we reach this point then the character in the source string is not of an accepted type and so
         # the source string is in an incorrect format.
-        raise ValueError(f"Unexpected character in input: {c}")
+        # raise ValueError(f"Unexpected character in input: {c}")
 
     return tokens
 
@@ -190,13 +193,14 @@ def parse(tokens: list[str]) -> list[any]:
         token = tokens[index]
 
         if token == "(":
+            s_expr: list[int | float | str] = []
             if tokens[index + 1] == ")":
-                return (0, index + 1)
+                return (s_expr, index + 1)
             se1, ni = parse_expression(index + 1)
-            s_expr: list[int | float | str] = [se1]
+            s_expr.append(se1)
             while tokens[ni] != ")":
                 se, ni = parse_expression(ni)
-                if se != 0:
+                if se != []:
                     s_expr.append(se)
             return (s_expr, ni + 1)
         try:
@@ -260,6 +264,7 @@ if __name__ == "__main__":
     #     sys.modules[__name__], use_frames=False, verbose=False
     # ).cmdloop()
     # s = "(define circle-area (lambda (r) (* 3.14 (* r r))))"
+    s = "()"
     s = "(* 3.14 (* r r) ())"
     tokens = tokenize(s)
     print(tokens)
