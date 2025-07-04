@@ -44,97 +44,73 @@ class Expr:
         return Expr.parse(tokens)
 
     @staticmethod
-    def tokenize(s: str) -> list[str]:
-        # traverse sym_str one char at a time
-        # if blank space, do nothing
-        # if a number, then keep going till the end of the number and save as one token
-        # if parentheses or operators, add single token.
+    def traverse_number(s: str, i: int, negative: bool = False) -> tuple[int, str]:
+        num: list[str] = []
+        if negative:
+            num.append("-")
+            i += 1
+        while i < len(s) and (s[i].isdigit() or s[i] == "."):
+            num.append(s[i])
+            i += 1
+        return i, "".join(num)
 
+    @staticmethod
+    def tokenize(s: str) -> list[str]:
         tokens: list[str] = []
         i = 0
-
+        # traverse the source string starting at position 0
         while i < len(s):
             c = s[i]
+            # case 1: space character -> do nothing, move to next character
             if c.isspace():
                 i += 1
                 continue
+            # case 2: if we encounter parens or an operator (except subtract operator, a special case)
+            # add that char to tokens, move on
             if c in ["(", ")"] or c in ["+", "*", "/"]:
                 tokens.append(c)
                 i += 1
                 continue
+            # case 3: if we encounter a dash
+            # case 3.1 if the next char is a digit or a decimal point then this is a negative sign
+            # in this case we keep traversing and saving the digits to a list until we reach a non-digit
+            # at which point we append the entire number (with negative sign) to tokens.
+            # case 3.2: otherwise, the dash is a subtraction operator, which we append to tokens, and
+            # then we move on.
+
             if c == "-":
                 if s[i + 1].isdigit() or s[i + 1] == ".":
-                    i += 1
-                    num: list[str] = ["-"]
-                    while i < len(s) and (s[i].isdigit() or s[i] == "."):
-                        num.append(s[i])
-                        i += 1
-
-                    tokens.append("".join(num))
+                    i, num = Expr.traverse_number(s, i, True)
+                    tokens.append(num)
                     continue
                 else:
                     tokens.append(c)
                     i += 1
                     continue
+            # case 4: if we encounter a digit, then we proceed as in case 3.1 and save the entire number
+            # to tokens (without a positive sign in this case).
             if c.isdigit() or c == ".":
-                num: list[str] = []
-                while i < len(s) and (s[i].isdigit() or s[i] == "."):
-                    num.append(s[i])
-                    i += 1
-                tokens.append("".join(num))
+                i, num = Expr.traverse_number(s, i, False)
+                tokens.append(num)
                 continue
+            # case 5: if we encounter an alphabetic character, we add it to tokens and move on (the assumption
+            # here is that variables are one character long)
             if c.isalpha():
                 tokens.append(c)
                 i += 1
                 continue
+            # if we reach this point then the character in the source string is not of an accepted type and so
+            # the source string is in an incorrect format.
             raise ValueError(f"Unexpected character in input: {c}")
 
         return tokens
-
-    # @staticmethod
-    # def tokenize(sym_str: str) -> list[str]:
-    #     tokens: list[str] = []
-    #     i = 0
-    #     while i < len(sym_str):
-    #         c = sym_str[i]
-    #         if c.isspace():
-    #             i += 1
-    #         elif c in "()+*/":
-    #             tokens.append(c)
-    #             i += 1
-    #         elif (
-    #             c == "-"
-    #             and (i + 1 < len(sym_str))
-    #             and (sym_str[i + 1].isdigit() or sym_str[i + 1] == ".")
-    #         ):
-    #             # Start of a negative number
-    #             num = c
-    #             i += 1
-    #             while i < len(sym_str) and (sym_str[i].isdigit() or sym_str[i] == "."):
-    #                 num += sym_str[i]
-    #                 i += 1
-    #             tokens.append(num)
-    #         elif c.isdigit() or c == ".":
-    #             # Start of a non-negative number
-    #             num = c
-    #             i += 1
-    #             while i < len(sym_str) and (sym_str[i].isdigit() or sym_str[i] == "."):
-    #                 num += sym_str[i]
-    #                 i += 1
-    #             tokens.append(num)
-    #         elif c.isalpha():
-    #             tokens.append(c)
-    #             i += 1
-    #         else:
-    #             raise ValueError(f"Unexpected character in input: {c}")
-    #     return tokens
 
     @staticmethod
     def parse(tokens: list[str]) -> "Expr":
 
         def parse_expression(index: int) -> tuple["Expr", int]:
             token = tokens[index]
-
+            print(token)
             operators = {"+": Add, "-": Sub, "*": Mul, "/": Div}
 
             if token == "(":
@@ -461,7 +437,7 @@ if __name__ == "__main__":
     x = Var("x")
     y = Var("y")
 
-    tokens = Expr.tokenize("20")
+    tokens = Expr.tokenize("()")
     # parsed = Expr.parse(tokens)
 
     print(tokens)
