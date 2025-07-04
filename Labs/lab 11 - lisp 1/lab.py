@@ -178,7 +178,10 @@ def tokenize(s: str) -> list[str]:
     return tokens
 
 
-def parse(tokens: list[str]) -> list[any]:
+Parsed = int | str | list[int | float | str]
+
+
+def parse(tokens: list[str]) -> Parsed:
     """
     Parses a list of tokens, constructing a representation where:
         * symbols are represented as Python strings
@@ -187,22 +190,42 @@ def parse(tokens: list[str]) -> list[any]:
 
     Arguments:
         tokens (list): a list of strings representing tokens
+
+    >>> parse(['2'])
+    2
+    >>> parse(['x'])
+    'x'
+    >>> parse(['(', '+', '2', '(', '-', '5', '3', ')', '7', '8', ')'])
+    ['+', 2, ['-', 5, 3], 7, 8]
     """
 
     def parse_expression(index: int):
+        # consider one token at a time
         token = tokens[index]
-
+        # parentheses represent s-expressions
         if token == "(":
+            # create a list to represent the s-expression
             s_expr: list[int | float | str] = []
+            # if the s-expression is empty, return an empty list
             if tokens[index + 1] == ")":
                 return (s_expr, index + 1)
+            # otherwise, the s-expression is not empty, so parse it
+            # starting at the first token after the open parens, which
+            # is a special expression determining what the s-expr means.
             se1, ni = parse_expression(index + 1)
+            # add the special expr to the list representing the s-expr
             s_expr.append(se1)
+            # then, keep parsing expressions in the s-expr until a closing
+            # parens is encountered.
             while tokens[ni] != ")":
                 se, ni = parse_expression(ni)
                 if se != []:
                     s_expr.append(se)
+            # return the s_expr
             return (s_expr, ni + 1)
+        # if the token is not an opening parens, then it must be an atomic
+        # expression, ie either a number or a symbol.
+        # we convert a number to either int or float, and leave symbols as str.
         try:
             return (int(token), index + 1)
         except ValueError:
@@ -270,3 +293,5 @@ if __name__ == "__main__":
     print(tokens)
     parsed = parse(tokens)
     print(parsed)
+    print(parse(["(", "+", "2", "(", "-", "5", "3", ")", "7", "8", ")"]))
+    print(parse(["2"]))
