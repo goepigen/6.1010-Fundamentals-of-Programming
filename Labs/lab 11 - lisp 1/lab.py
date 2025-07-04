@@ -6,7 +6,9 @@ LISP Interpreter Part 1
 #!/usr/bin/env python3
 
 # import doctest # optional import
-# import typing  # optional import
+from typing import Callable, Any, Union  # optional import
+from functools import reduce
+
 # import pprint  # optional import
 
 import sys
@@ -178,7 +180,7 @@ def tokenize(s: str) -> list[str]:
     return tokens
 
 
-Parsed = int | str | list[int | float | str]
+Parsed = int | float | str | list[int | float | str]
 
 
 def parse(tokens: list[str]) -> Parsed:
@@ -243,8 +245,10 @@ def parse(tokens: list[str]) -> Parsed:
 # Built-in Functions #
 ######################
 
+Number = Union[int, float]
 
-def calc_sub(*args):
+
+def calc_sub(*args: Any) -> Any:
     if len(args) == 1:
         return -args[0]
 
@@ -252,9 +256,25 @@ def calc_sub(*args):
     return first_num - scheme_builtins["+"](*rest_nums)
 
 
-scheme_builtins = {
+def calc_mul(*args: Number) -> Number:
+    if not args:
+        return 1
+    return reduce(lambda acc, x: acc * x, args, 1)
+
+
+def calc_div(*args: Number) -> Number:
+    if not args:
+        raise TypeError("division requires at least one argument.")
+    if len(args) == 1:
+        return 1 / args[0]
+    return reduce(lambda acc, x: acc / x, args)
+
+
+scheme_builtins: dict[str, Callable[..., Number]] = {
     "+": lambda *args: sum(args),
     "-": calc_sub,
+    "*": calc_mul,
+    "/": calc_div,
 }
 
 
@@ -263,7 +283,7 @@ scheme_builtins = {
 ##############
 
 
-def evaluate(tree):
+def evaluate(tree: Parsed) -> Callable[..., Any] | int | float:
     """
     Evaluate the given syntax tree according to the rules of the Scheme
     language.
@@ -271,8 +291,45 @@ def evaluate(tree):
     Arguments:
         tree (type varies): a fully parsed expression, as the output from the
                             parse function
+    >>> evaluate(3.14)
+    3.14
+    >>> evaluate(['+', 1, 2])
+    3
+    >>> evaluate([3.14])
+    Traceback (most recent call last):
+    ...
+    lab.SchemeEvaluationError: 3.14 not callable
+
+    >>> evaluate(['a', 1, 2])
+    Traceback (most recent call last):
+    ...
+    lab.SchemeNameError: Invalid symbol
+
+    >>> evaluate(['+', 3, ['-', 7, 5]])
+    5
     """
-    raise NotImplementedError
+    # if tree is a string, then it is an operation and we
+    # find the associated function in the scheme_builtins dict and return it
+    if isinstance(tree, str):
+        try:
+            return scheme_builtins[tree]
+        except KeyError:
+            raise SchemeNameError("Invalid symbol")
+    # if tree is a number, just return the number
+    elif isinstance(tree, (int, float)):
+        return tree
+    # if the tree is a list, then we recurse on each element of the list
+    # the first element should be an operation, and the remaining elements
+    # should be arguments to pass to the operation.
+    # return value is the result of calling operation on the args
+    else:
+        expressions = list(map(evaluate, tree))
+        op = expressions[0]
+        args = expressions[1:]
+        if callable(op):
+            return op(*args)
+        else:
+            raise SchemeEvaluationError(f"{op} not callable")
 
 
 if __name__ == "__main__":
