@@ -4,9 +4,10 @@ LISP Interpreter Part 1
 """
 
 #!/usr/bin/env python3
+from __future__ import annotations
 
 # import doctest # optional import
-from typing import Callable, Any, Union  # optional import
+from typing import Callable, Any, Union, Optional, cast  # optional import
 from functools import reduce
 
 # import pprint  # optional import
@@ -55,6 +56,80 @@ class SchemeEvaluationError(SchemeError):
     """
 
     pass
+
+
+class Frame:
+    def __init__(self, parent: Frame | None = None):
+        self.parent = parent
+        self.bindings: dict[str, Any] = {}
+
+    def __getitem__(self, name: str) -> Any:
+        if name in self.bindings:
+            return self.bindings[name]
+        elif self.parent:
+            return self.parent[name]
+        else:
+            raise SchemeNameError(f"Unbound symbol {name}")
+
+    def __setitem__(self, name: str, val: Any):
+        self.bindings[name] = val
+
+    def __contains__(self, name: str) -> bool:
+        try:
+            self[name]
+            return True
+        except SchemeNameError:
+            return False
+
+    def __iter__(self):
+        return iter(self.bindings)
+
+
+######################
+# Built-in Functions #
+######################
+
+Number = Union[int, float]
+
+
+def calc_add(*args: Number) -> Number:
+    if not args:
+        return 0
+    return sum(args)
+
+
+def calc_sub(*args: Number) -> Number:
+    if not args:
+        return 0
+    if len(args) == 1:
+        return -args[0]
+    return reduce(lambda acc, x: acc - x, args)
+
+
+def calc_mul(*args: Number) -> Number:
+    if not args:
+        return 1
+    return reduce(lambda acc, x: acc * x, args, 1)
+
+
+def calc_div(*args: Number) -> Number:
+    if not args:
+        raise TypeError("division requires at least one argument.")
+    if len(args) == 1:
+        return 1 / args[0]
+    return reduce(lambda acc, x: acc / x, args)
+
+
+# Built-in Frame
+builtin_frame = Frame()
+builtin_frame["+"] = calc_add
+builtin_frame["-"] = calc_sub
+builtin_frame["*"] = calc_mul
+builtin_frame["/"] = calc_div
+
+
+def make_initial_frame():
+    return Frame(builtin_frame)
 
 
 ############################
@@ -140,7 +215,7 @@ def tokenize(s: str) -> list[str]:
             # case 3.1 if the next char is a digit or a decimal point then this is a negative sign
             # in this case we keep traversing and saving the digits to a list until we reach a non-digit
             # at which point we append the entire number (with negative sign) to tokens.
-            if s[i + 1].isdigit() or s[i + 1] == ".":
+            if i + 1 < len(s) and (s[i + 1].isdigit() or s[i + 1] == "."):
                 i, num = traverse_number(s, i, False)
                 tokens.append(num)
                 continue
@@ -173,14 +248,10 @@ def tokenize(s: str) -> list[str]:
             tokens.append(var)
             continue
 
-        # if we reach this point then the character in the source string is not of an accepted type and so
-        # the source string is in an incorrect format.
-        # raise ValueError(f"Unexpected character in input: {c}")
-
     return tokens
 
 
-Parsed = int | float | str | list[int | float | str]
+Parsed = Union[int | float | str | list["Parsed"]]
 
 
 def parse(tokens: list[str]) -> Parsed:
@@ -241,49 +312,27 @@ def parse(tokens: list[str]) -> Parsed:
     return parsed_expression
 
 
-######################
-# Built-in Functions #
-######################
-
-Number = Union[int, float]
-
-
-def calc_sub(*args: Any) -> Any:
-    if len(args) == 1:
-        return -args[0]
-
-    first_num, *rest_nums = args
-    return first_num - scheme_builtins["+"](*rest_nums)
-
-
-def calc_mul(*args: Number) -> Number:
-    if not args:
-        return 1
-    return reduce(lambda acc, x: acc * x, args, 1)
-
-
-def calc_div(*args: Number) -> Number:
-    if not args:
-        raise TypeError("division requires at least one argument.")
-    if len(args) == 1:
-        return 1 / args[0]
-    return reduce(lambda acc, x: acc / x, args)
-
-
-scheme_builtins: dict[str, Callable[..., Number]] = {
-    "+": lambda *args: sum(args),
-    "-": calc_sub,
-    "*": calc_mul,
-    "/": calc_div,
-}
-
-
 ##############
 # Evaluation #
 ##############
 
 
-def evaluate(tree: Parsed) -> Callable[..., Any] | int | float:
+class Function:
+    def __init__(self, params: list[str], body: Parsed, parent_frame: Frame):
+        self.params = params
+        self.body = body
+        self.parent_frame = parent_frame
+
+
+def expect_list_of_str(obj: Parsed) -> list[str]:
+    if isinstance(obj, list) and all(isinstance(e, str) for e in obj):
+        return [e for e in obj]  # type: ignore
+    raise TypeError(f"Expected list[str], got {obj!r}")
+
+
+def evaluate(
+    tree: Parsed, frame: Optional[Frame] = None
+) -> Callable[..., Any] | int | float | str | Function:
     """
     Evaluate the given syntax tree according to the rules of the Scheme
     language.
@@ -308,47 +357,84 @@ def evaluate(tree: Parsed) -> Callable[..., Any] | int | float:
     >>> evaluate(['+', 3, ['-', 7, 5]])
     5
     """
-    # if tree is a string, then it is an operation and we
-    # find the associated function in the scheme_builtins dict and return it
+    if frame is None:
+        frame = make_initial_frame()
+    # if tree is a string
     if isinstance(tree, str):
-        try:
-            return scheme_builtins[tree]
-        except KeyError:
-            raise SchemeNameError("Invalid symbol")
+        if tree in frame:
+            return frame[tree]
+        else:
+            raise SchemeNameError(f"Invalid symbol {tree}")
     # if tree is a number, just return the number
     elif isinstance(tree, (int, float)):
         return tree
-    # if the tree is a list, then we recurse on each element of the list
-    # the first element should be an operation, and the remaining elements
+    # if the tree is a list, then it represents an s-expression. the first element
+    # can either be a keyword ("define" or "lambda") or a non-keyword (the name of an
+    # operator).
+    # the first element can be either a keyword (e.g. "define") or a non-keyword
+    # (e.g. an operator). In case of "define" there are two remaining elements, a
+    # name and a value. In the case of a non-keyword, the remaining elements
     # should be arguments to pass to the operation.
     # return value is the result of calling operation on the args
     else:
-        expressions = list(map(evaluate, tree))
-        op = expressions[0]
-        args = expressions[1:]
-        if callable(op):
-            return op(*args)
+        op = tree[0]
+        args = tree[1:]
+        # create and return a Function object
+        if op == "lambda":
+            params = args[0]
+            expr = args[1]
+            params = expect_list_of_str(params)
+            return Function(params, expr, frame)
+
+        # evaluate the second argument, bind the name to this value in
+        # the current frame, return the value.
+        if op == "define":
+            # TODO: better type checking
+            name = args[0]
+            val = evaluate(args[1], frame)
+            frame[name] = val
+            return val
+        # the first element is a function but it can either be a user-defined function
+        # or a builtin function.
         else:
-            raise SchemeEvaluationError(f"{op} not callable")
+            f = evaluate(op, frame)
+            args = [evaluate(arg, frame) for arg in args]
+            # if it is a user-defined function, evaluate the arguments, create a new frame
+            # for the function that has the current frame as its parent, bind each argument
+            # to the corresponding parameter contained in the Function object.
+            # finally, evaluate the body of the function (contained in the Function object)
+            # in the new function frame and return the result.
+            if isinstance(f, Function):
+                f_frame = Frame(f.parent_frame)
+                if len(f.params) != len(args):
+                    raise SchemeEvaluationError(
+                        f"wrong number of arguments. expected {len(f.params)} arguments, but got {len(args)}"
+                    )
+
+                for param, arg in zip(f.params, args):
+                    f_frame[param] = arg
+                return evaluate(f.body, f_frame)
+            elif callable(f):
+                return f(*args)
+            else:
+                raise SchemeEvaluationError(f"{op} not callable")
 
 
 if __name__ == "__main__":
-    # # code in this block will only be executed if lab.py is the main file being
-    # # run (not when this module is imported)
-    # import os
+    # code in this block will only be executed if lab.py is the main file being
+    # run (not when this module is imported)
+    import os
 
-    # sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-    # import schemerepl
+    sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+    import schemerepl
 
-    # schemerepl.SchemeREPL(
-    #     sys.modules[__name__], use_frames=False, verbose=False
-    # ).cmdloop()
-    # s = "(define circle-area (lambda (r) (* 3.14 (* r r))))"
-    s = "()"
-    s = "(* 3.14 (* r r) ())"
-    tokens = tokenize(s)
-    print(tokens)
-    parsed = parse(tokens)
-    print(parsed)
-    print(parse(["(", "+", "2", "(", "-", "5", "3", ")", "7", "8", ")"]))
-    print(parse(["2"]))
+    schemerepl.SchemeREPL(
+        sys.modules[__name__], use_frames=True, verbose=False
+    ).cmdloop()
+    # s = "(- (+ 2 3))"
+    # tokens = tokenize(s)
+    # print(tokens)
+    # parsed = parse(tokens)
+    # print(parsed)
+    # evaluated = evaluate(parsed)
+    # print(evaluated)
